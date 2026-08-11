@@ -7,6 +7,8 @@
   "scripts": {
     "export:web": "npm run export:web -w rn",
     "deploy:web": "scripts/deploy-web.sh",
+    "deploy:web:staging": "scripts/deploy-web.sh staging",
+    "deploy:web:production": "scripts/deploy-web.sh production",
     "sync:identity-sdk": "scripts/sync-identity-sdk.sh"
   }
 }

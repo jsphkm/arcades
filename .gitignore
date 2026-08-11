@@ -107,6 +107,8 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+.env.*
+!.env*.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -135,6 +137,7 @@ rn/dist/
 # AWS CDK
 infra/cdk.out/
 infra/cdk.context.json
+infra/infra
 
 ### SublimeText ###
 # Cache files for Sublime Text
