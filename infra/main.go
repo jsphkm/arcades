@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-
+    "strings"
+    "regexp"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudfront"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudfrontorigins"
@@ -14,14 +15,28 @@ import (
 
 type SnakeWebStackProps struct {
 	awscdk.StackProps
+	Stage string
+}
+
+var stageNameRE = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+func normalizeStage(stage string) (string, error) {
+    stage = strings.TrimSpace(strings.ToLower(stage))
+    if stage == "" { return "", fmt.Errorf("Stage is required") }
+    if !stageNameRE.MatchString(stage) {
+        return "", fmt.Errorf("Stage %q must match [a-z][a-z0-9-]*", stage)
+    }
+    return stage, nil
 }
 
 func NewSnakeWebStack(scope constructs.Construct, id string, props *SnakeWebStackProps) awscdk.Stack {
-	var sprops awscdk.StackProps
-	if props != nil {
-		sprops = props.StackProps
+	if props == nil {
+        panic("SnakeWebStackProps is required")
 	}
-	stack := awscdk.NewStack(scope, &id, &sprops)
+
+    stage, err := normalizeStage(props.Stage)
+    if err != nil { panic(err) }
+    
+	stack := awscdk.NewStack(scope, &id, &props.StackProps)
 
 	bucket := awss3.NewBucket(stack, jsii.String("WebBucket"), &awss3.BucketProps{
 		BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
@@ -82,20 +97,22 @@ func NewSnakeWebStack(scope constructs.Construct, id string, props *SnakeWebStac
 		},
 	}))
 
+    prefix := fmt.Sprintf("SnakeWeb-%s", stage)
+
 	awscdk.NewCfnOutput(stack, jsii.String("BucketName"), &awscdk.CfnOutputProps{
 		Value:       bucket.BucketName(),
 		Description: jsii.String("S3 bucket for Expo web dist"),
-		ExportName:  jsii.String("SnakeWebBucketName"),
+		ExportName:  jsii.String(prefix + "-BucketName"),
 	})
 	awscdk.NewCfnOutput(stack, jsii.String("DistributionId"), &awscdk.CfnOutputProps{
 		Value:       distribution.DistributionId(),
 		Description: jsii.String("CloudFront distribution id"),
-		ExportName:  jsii.String("SnakeWebDistributionId"),
+		ExportName:  jsii.String(prefix + "-DistributionId"),
 	})
 	awscdk.NewCfnOutput(stack, jsii.String("URL"), &awscdk.CfnOutputProps{
 		Value:       jsii.String(fmt.Sprintf("https://%s", *distribution.DomainName())),
 		Description: jsii.String("CloudFront URL"),
-		ExportName:  jsii.String("SnakeWebURL"),
+		ExportName:  jsii.String(prefix + "-WebURL"),
 	})
 
 	return stack
@@ -105,11 +122,12 @@ func main() {
 	defer jsii.Close()
 
 	app := awscdk.NewApp(nil)
-	NewSnakeWebStack(app, "SnakeWebStack", &SnakeWebStackProps{
-		StackProps: awscdk.StackProps{
-			Env: env(),
-		},
-	})
+	for _, stage := range []string { "prod", "staging" } {
+        NewSnakeWebStack(app, "SnakeWeb-"+stage, &SnakeWebStackProps {
+            StackProps: awscdk.StackProps { Env: env() },
+            Stage: stage,
+        })
+	}
 	app.Synth(nil)
 }
 
