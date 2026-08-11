@@ -6,6 +6,7 @@
   ],
   "scripts": {
     "export:web": "npm run export:web -w rn",
-    "deploy:web": "scripts/deploy-web.sh"
+    "deploy:web": "scripts/deploy-web.sh",
+    "sync:identity-sdk": "scripts/sync-identity-sdk.sh"
   }
 }

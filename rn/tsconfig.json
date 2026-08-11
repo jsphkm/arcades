@@ -8,6 +8,9 @@
       ],
       "@/assets/*": [
         "./assets/*"
+      ],
+      "identity-sdk": [
+        "../packages/identity-sdk/src/index.ts"
       ]
     }
   },
