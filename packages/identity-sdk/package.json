@@ -1,0 +1,14 @@
+{
+  "name": "identity-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "expo-auth-session": "*",
+    "expo-web-browser": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "description": "Vendored from identity-console/sdk. Run npm run sync:identity-sdk to refresh."
+}
