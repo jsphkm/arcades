@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
+import { IdentityAuthProvider } from "identity-sdk";
 import { ThemeProvider, useTheme } from "../theme-context";
+import { snakeAuthConfig } from "../auth/config";
 
 function ThemedStack() {
   const { colors } = useTheme();
@@ -25,9 +27,17 @@ function ThemedStack() {
 }
 
 export default function RootLayout() {
+  const authConfig = snakeAuthConfig();
+
   return (
     <ThemeProvider>
-      <ThemedStack />
+      {authConfig ? (
+        <IdentityAuthProvider config={authConfig}>
+          <ThemedStack />
+        </IdentityAuthProvider>
+      ) : (
+        <ThemedStack />
+      )}
     </ThemeProvider>
   );
 }

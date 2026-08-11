@@ -6,6 +6,7 @@ import { Menu } from "../components/Menu";
 import { GameBoard } from "../components/GameBoard";
 import { Controls } from "../components/Controls";
 import { ScoreHud } from "../components/ScoreHud";
+import { TopBar } from "../components/TopBar";
 
 const JOYSTICK_SLOT = 180;
 const SCORE_HUD = 54;
@@ -85,40 +86,46 @@ export default function Index() {
   );
 
   return (
-    <View style={[styles.page, { backgroundColor: colors.page }]}>
-      {isLandscape ? (
-        <View style={styles.landscapeWrap}>
-          <View style={styles.hudRow}>{hud}</View>
-          <View style={styles.landscapeRow}>
-            <View style={[styles.side, { height: boardSize }]}>{controls}</View>
-            {board}
-            <View style={[styles.side, { height: boardSize }]} />
+    <View style={[styles.root, { backgroundColor: colors.page }]}>
+      <TopBar />
+      <View style={[styles.page, { backgroundColor: colors.page }]}>
+        {isLandscape ? (
+          <View style={styles.landscapeWrap}>
+            <View style={styles.hudRow}>{hud}</View>
+            <View style={styles.landscapeRow}>
+              <View style={[styles.side, { height: boardSize }]}>{controls}</View>
+              {board}
+              <View style={[styles.side, { height: boardSize }]} />
+            </View>
           </View>
-        </View>
-      ) : (
-        <>
-          {hud}
-          {board}
-          <View style={styles.portraitControls}>{controls}</View>
-        </>
-      )}
+        ) : (
+          <>
+            {hud}
+            {board}
+            <View style={styles.portraitControls}>{controls}</View>
+          </>
+        )}
 
-      {state === "dead" ? (
-        <View style={[styles.overlay, { pointerEvents: "box-none" }]}>
-          <View
-            style={[
-              styles.overlayScrim,
-              { backgroundColor: colors.page, pointerEvents: "none" },
-            ]}
-          />
-          <Menu onStart={startGame} label="Try Again" />
-        </View>
-      ) : null}
+        {state === "dead" ? (
+          <View style={[styles.overlay, { pointerEvents: "box-none" }]}>
+            <View
+              style={[
+                styles.overlayScrim,
+                { backgroundColor: colors.page, pointerEvents: "none" },
+              ]}
+            />
+            <Menu onStart={startGame} label="Try Again" />
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   page: {
     flex: 1,
     alignItems: "center",
