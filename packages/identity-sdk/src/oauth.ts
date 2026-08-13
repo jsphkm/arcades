@@ -10,6 +10,10 @@ function pkceKey(prefix: string): string {
   return `${prefix}.oauth.pkce`;
 }
 
+function usedCodeKey(prefix: string): string {
+  return `${prefix}.oauth.usedCode`;
+}
+
 function ssoAttemptedKey(prefix: string): string {
   return `${prefix}.sso.attempted`;
 }
@@ -47,6 +51,16 @@ export function takePendingOAuth(prefix: string): PendingOAuth | null {
   }
 }
 
+export function markOAuthCodeUsed(prefix: string, code: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.setItem(usedCodeKey(prefix), code);
+}
+
+export function wasOAuthCodeUsed(prefix: string, code: string): boolean {
+  if (typeof sessionStorage === "undefined") return false;
+  return sessionStorage.getItem(usedCodeKey(prefix)) === code;
+}
+
 /** Soft Cognito errors from prompt=none when there is no Hosted UI session. */
 export function isSilentSsoSoftError(error: string | null): boolean {
   if (!error) return false;
@@ -58,9 +72,30 @@ export function isSilentSsoSoftError(error: string | null): boolean {
   );
 }
 
+function urlHasSsoFlag(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("sso") === "1";
+}
+
+/** Drop ?sso=1 after it has been observed (keeps other query params). */
+export function clearSsoQueryFlag(): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("sso")) return;
+  url.searchParams.delete("sso");
+  const q = url.searchParams.toString();
+  window.history.replaceState(
+    {},
+    "",
+    `${url.pathname}${q ? `?${q}` : ""}${url.hash}`,
+  );
+}
+
 export function shouldAttemptSilentSso(prefix: string): boolean {
   if (typeof sessionStorage === "undefined") return false;
   if (sessionStorage.getItem(ssoSkipKey(prefix))) return false;
+  // Cross-app handoff (e.g. Arcades → Account) always retries once.
+  if (urlHasSsoFlag()) return true;
   if (sessionStorage.getItem(ssoAttemptedKey(prefix))) return false;
   return true;
 }
@@ -68,6 +103,7 @@ export function shouldAttemptSilentSso(prefix: string): boolean {
 export function markSilentSsoAttempted(prefix: string): void {
   if (typeof sessionStorage === "undefined") return;
   sessionStorage.setItem(ssoAttemptedKey(prefix), "1");
+  clearSsoQueryFlag();
 }
 
 /** After local sign-out, skip silent SSO for this tab so we do not bounce back in. */
@@ -80,6 +116,7 @@ export function markSilentSsoSkipped(prefix: string): void {
 export function clearSilentSsoSkip(prefix: string): void {
   if (typeof sessionStorage === "undefined") return;
   sessionStorage.removeItem(ssoSkipKey(prefix));
+  sessionStorage.removeItem(ssoAttemptedKey(prefix));
 }
 
 export function readOAuthCallbackParams(): {
@@ -103,13 +140,18 @@ export function readOAuthCallbackParams(): {
 export function clearOAuthQueryFromUrl(): void {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
-  if (
-    ![...url.searchParams.keys()].some((k) =>
-      ["code", "state", "error", "error_description"].includes(k),
-    )
-  ) {
-    return;
+  let changed = false;
+  for (const key of ["code", "state", "error", "error_description", "sso"]) {
+    if (url.searchParams.has(key)) {
+      url.searchParams.delete(key);
+      changed = true;
+    }
   }
-  url.search = "";
-  window.history.replaceState({}, "", `${url.pathname}${url.hash}`);
+  if (!changed) return;
+  const q = url.searchParams.toString();
+  window.history.replaceState(
+    {},
+    "",
+    `${url.pathname}${q ? `?${q}` : ""}${url.hash}`,
+  );
 }

@@ -15,12 +15,14 @@ import {
   clearSilentSsoSkip,
   defaultRedirectUri,
   isSilentSsoSoftError,
+  markOAuthCodeUsed,
   markSilentSsoAttempted,
   markSilentSsoSkipped,
   readOAuthCallbackParams,
   savePendingOAuth,
   shouldAttemptSilentSso,
   takePendingOAuth,
+  wasOAuthCodeUsed,
 } from "./oauth";
 import {
   accessTokenStale,
@@ -151,7 +153,19 @@ async function completeWebOAuthReturn(opts: {
 
   oauthReturnInFlight = (async () => {
     try {
+      // Expo Router can keep ?code= after a successful exchange. Prefer the
+      // persisted session over failing the bootstrap and logging the user out.
       if (!pending) {
+        const existing = loadSession(prefix);
+        if (existing && wasOAuthCodeUsed(prefix, authCode)) {
+          oauthReturnResult = { session: existing, error: null };
+          return existing;
+        }
+        if (existing) {
+          markOAuthCodeUsed(prefix, authCode);
+          oauthReturnResult = { session: existing, error: null };
+          return existing;
+        }
         throw new Error("Sign-in session expired. Start again from Sign in.");
       }
       if (state && state !== pending.state) {
@@ -174,6 +188,7 @@ async function completeWebOAuthReturn(opts: {
 
       const next = sessionFromTokenResponse(token, null);
       saveSession(prefix, next);
+      markOAuthCodeUsed(prefix, authCode);
       clearSilentSsoSkip(prefix);
       oauthReturnResult = { session: next, error: null };
       return next;
