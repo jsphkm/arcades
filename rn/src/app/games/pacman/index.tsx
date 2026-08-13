@@ -69,6 +69,7 @@ function GameBody({
     eatPopup,
     frame,
     showInfo,
+    deathT,
     activeDir,
     getSnap,
     startGame,
@@ -96,6 +97,7 @@ function GameBody({
       eatPopup,
       frame,
       showInfo,
+      deathT,
     }),
     [
       phase,
@@ -114,6 +116,7 @@ function GameBody({
       eatPopup,
       frame,
       showInfo,
+      deathT,
     ],
   );
 
@@ -166,8 +169,10 @@ function GameBody({
   const playing = phase === "playing";
   const paused = phase === "paused";
   const showBoard =
+    phase === "ready" ||
     phase === "playing" ||
     phase === "paused" ||
+    phase === "dying" ||
     phase === "dead" ||
     phase === "won";
 
@@ -216,7 +221,7 @@ function GameBody({
             getSnap={getSnap}
           />
           {phase === "dead" || phase === "won" ? (
-            <View style={styles.overlay}>
+            <View style={styles.overlayMenu} pointerEvents="box-none">
               <Menu
                 onStart={startGame}
                 label={phase === "won" ? "Play Again" : "Try Again"}
@@ -245,7 +250,13 @@ function GameBody({
     </View>
   );
 
-  const faceEnabled = playing || paused || showInfo || phase === "menu";
+  const faceEnabled =
+    playing ||
+    paused ||
+    showInfo ||
+    phase === "menu" ||
+    phase === "ready" ||
+    phase === "dead";
 
   return (
     <View
@@ -264,7 +275,7 @@ function GameBody({
           <View style={styles.landscapeRow}>
             <View style={[styles.side, { height: boardH + LIFE_BAND }]}>
               <GamepadStick
-                enabled={playing}
+                enabled={playing || phase === "ready"}
                 activeDir={activeDir}
                 travelDir={pac.dir}
                 onDirection={setDirection}
@@ -402,6 +413,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.45)",
+    zIndex: 5,
+  },
+  overlayMenu: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 8,
     zIndex: 5,
   },
   menuStack: {
