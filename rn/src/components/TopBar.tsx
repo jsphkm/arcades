@@ -8,7 +8,7 @@ import { ProfileMenu } from "./ProfileMenu";
 type TopBarProps = {
   /** Product brand in the bar. */
   title?: string;
-  /** When set, show a High scores link (Snake routes). */
+  /** When set, show a High scores link for the current game. */
   highScoresHref?: Href;
 };
 

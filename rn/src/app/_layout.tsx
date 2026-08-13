@@ -3,23 +3,22 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { IdentityAuthProvider } from "identity-sdk";
-import { ThemeProvider, useTheme } from "../theme-context";
+import { arcade } from "../arcadeTheme";
+import { ThemeProvider } from "../theme-context";
 import { arcadesAuthConfig } from "../auth/config";
 
 function ThemedStack() {
-  const { colors } = useTheme();
-
   useEffect(() => {
-    SystemUI.setBackgroundColorAsync(colors.page);
-  }, [colors.page]);
+    SystemUI.setBackgroundColorAsync(arcade.bg);
+  }, []);
 
   return (
     <>
-      <StatusBar style={colors.statusBar} />
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.page },
+          contentStyle: { backgroundColor: arcade.bg },
         }}
       />
     </>

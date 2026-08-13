@@ -12,9 +12,14 @@ import React, {
 import { Platform } from "react-native";
 import {
   clearOAuthQueryFromUrl,
+  clearSilentSsoSkip,
   defaultRedirectUri,
+  isSilentSsoSoftError,
+  markSilentSsoAttempted,
+  markSilentSsoSkipped,
   readOAuthCallbackParams,
   savePendingOAuth,
+  shouldAttemptSilentSso,
   takePendingOAuth,
 } from "./oauth";
 import {
@@ -77,6 +82,34 @@ function discoveryFromDomain(domain: string) {
   };
 }
 
+function cognitoRegionFromDomain(domain: string): string | null {
+  const m = trimSlash(domain).match(
+    /\.auth\.([a-z0-9-]+)\.amazoncognito\.com$/i,
+  );
+  return m?.[1] ?? null;
+}
+
+/** Best-effort: invalidate all refresh tokens for this user (may fail CORS). */
+async function tryGlobalSignOut(
+  accessToken: string,
+  cognitoDomain: string,
+): Promise<void> {
+  const region = cognitoRegionFromDomain(cognitoDomain);
+  if (!region) return;
+  try {
+    await fetch(`https://cognito-idp.${region}.amazonaws.com/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-amz-json-1.1",
+        "X-Amz-Target": "AWSCognitoIdentityProviderService.GlobalSignOut",
+      },
+      body: JSON.stringify({ AccessToken: accessToken }),
+    });
+  } catch {
+    // ignore — Hosted UI /logout still clears the shared cookie
+  }
+}
+
 async function completeWebOAuthReturn(opts: {
   prefix: string;
   config: IdentityAuthConfig;
@@ -102,6 +135,10 @@ async function completeWebOAuthReturn(opts: {
 
   if (error) {
     takePendingOAuth(prefix);
+    if (isSilentSsoSoftError(error)) {
+      oauthReturnResult = { session: null, error: null };
+      return oauthReturnResult;
+    }
     oauthReturnResult = {
       session: null,
       error: errorDescription || error || "Sign-in was denied",
@@ -137,6 +174,7 @@ async function completeWebOAuthReturn(opts: {
 
       const next = sessionFromTokenResponse(token, null);
       saveSession(prefix, next);
+      clearSilentSsoSkip(prefix);
       oauthReturnResult = { session: next, error: null };
       return next;
     } catch (e) {
@@ -172,9 +210,11 @@ export function IdentityAuthProvider({
   const [ready, setReady] = useState(false);
   const [configOk, setConfigOk] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [silentSsoPending, setSilentSsoPending] = useState(false);
   const sessionRef = useRef<StoredSession | null>(null);
   const refreshPromise = useRef<Promise<string | null> | null>(null);
   const resolvedRef = useRef<IdentityAuthConfig | null>(resolved);
+  const silentRedirectStarted = useRef(false);
 
   const prefix = resolved?.storageKeyPrefix ?? "identity.auth";
   const getRedirectUri = resolved?.redirectUri ?? defaultRedirectUri;
@@ -225,7 +265,22 @@ export function IdentityAuthProvider({
           return;
         }
 
-        setSession(loadSession(storagePrefix));
+        const existing = loadSession(storagePrefix);
+        if (existing) {
+          sessionRef.current = existing;
+          setSession(existing);
+          setReady(true);
+          return;
+        }
+
+        if (
+          Platform.OS === "web" &&
+          shouldAttemptSilentSso(storagePrefix)
+        ) {
+          setSilentSsoPending(true);
+          return;
+        }
+
         setReady(true);
       } catch (e) {
         if (cancelled) return;
@@ -321,11 +376,64 @@ export function IdentityAuthProvider({
     discovery,
   );
 
+  // Cognito Hosted UI SSO: when another app already logged the user in,
+  // prompt=none exchanges the shared cookie for tokens on this origin.
+  useEffect(() => {
+    if (!silentSsoPending || !configOk || !discovery || !request) return;
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      setSilentSsoPending(false);
+      setReady(true);
+      return;
+    }
+    if (silentRedirectStarted.current) return;
+    if (!request.codeVerifier || !request.state) return;
+
+    silentRedirectStarted.current = true;
+    markSilentSsoAttempted(prefix);
+
+    (async () => {
+      try {
+        const url = await request.makeAuthUrlAsync(discovery);
+        const silentUrl = /[?&]prompt=/.test(url)
+          ? url.replace(/([?&])prompt=[^&]*/i, "$1prompt=none")
+          : `${url}&prompt=none`;
+        savePendingOAuth(prefix, {
+          codeVerifier: request.codeVerifier!,
+          state: request.state!,
+          redirectUri: getRedirectUri(),
+        });
+        window.location.assign(silentUrl);
+      } catch {
+        setSilentSsoPending(false);
+        setReady(true);
+      }
+    })();
+  }, [
+    silentSsoPending,
+    configOk,
+    discovery,
+    request,
+    prefix,
+    getRedirectUri,
+  ]);
+
+  useEffect(() => {
+    if (!silentSsoPending) return;
+    const id = setTimeout(() => {
+      if (silentRedirectStarted.current) return;
+      setSilentSsoPending(false);
+      setReady(true);
+    }, 8_000);
+    return () => clearTimeout(id);
+  }, [silentSsoPending]);
+
   const signIn = useCallback(async () => {
     const cfg = resolvedRef.current;
     if (!configOk || !discovery || !request || !cfg) {
       throw new Error("Auth config not ready");
     }
+
+    clearSilentSsoSkip(prefix);
 
     if (Platform.OS === "web" && typeof window !== "undefined") {
       const url = await request.makeAuthUrlAsync(discovery);
@@ -367,6 +475,27 @@ export function IdentityAuthProvider({
 
   const signOut = useCallback(async () => {
     const cfg = resolvedRef.current;
+    const current = sessionRef.current;
+    markSilentSsoSkipped(prefix);
+
+    if (configOk && discovery && cfg && current?.refreshToken) {
+      try {
+        await AuthSession.revokeAsync(
+          {
+            clientId: cfg.clientId,
+            token: current.refreshToken,
+          },
+          discovery,
+        );
+      } catch {
+        // continue with logout redirect
+      }
+    }
+
+    if (cfg && current?.accessToken) {
+      await tryGlobalSignOut(current.accessToken, cfg.cognitoDomain);
+    }
+
     expireSession();
     if (!configOk || !cfg || typeof window === "undefined") return;
     const domain = trimSlash(cfg.cognitoDomain);
@@ -375,7 +504,7 @@ export function IdentityAuthProvider({
       `?client_id=${encodeURIComponent(cfg.clientId)}` +
       `&logout_uri=${encodeURIComponent(getRedirectUri())}`;
     window.location.href = logoutUrl;
-  }, [configOk, expireSession, getRedirectUri]);
+  }, [configOk, discovery, expireSession, getRedirectUri, prefix]);
 
   const value = useMemo(
     () => ({

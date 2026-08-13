@@ -1,4 +1,5 @@
 import { Text, Pressable, StyleSheet, View } from "react-native";
+import { arcade } from "../arcadeTheme";
 import { useTheme } from "../theme-context";
 
 type Props = {
@@ -7,7 +8,7 @@ type Props = {
 };
 
 export function Menu({ onStart, label = "New Game" }: Props) {
-  const { colors, typography, space } = useTheme();
+  const { typography } = useTheme();
 
   return (
     <View style={styles.wrap}>
@@ -16,22 +17,20 @@ export function Menu({ onStart, label = "New Game" }: Props) {
         onPress={onStart}
         style={({ pressed, hovered }) => [
           styles.button,
-          {
-            width: space.buttonW,
-            height: space.buttonH,
-            backgroundColor: pressed ? colors.buttonPressed : colors.button,
-          },
-          hovered && { cursor: "pointer" as const },
+          (hovered || pressed) && styles.buttonHot,
+          pressed && styles.buttonDown,
         ]}
       >
         <Text
           style={{
-            color: colors.buttonLabel,
-            fontFamily: typography.fontFamily,
-            fontSize: typography.body,
+            color: arcade.brand,
+            fontFamily: typography.pixelFamily,
+            fontSize: 11,
+            letterSpacing: 1,
+            textAlign: "center",
           }}
         >
-          {label}
+          {label.toUpperCase()}
         </Text>
       </Pressable>
     </View>
@@ -41,8 +40,20 @@ export function Menu({ onStart, label = "New Game" }: Props) {
 const styles = StyleSheet.create({
   wrap: { alignItems: "center", justifyContent: "center" },
   button: {
+    minWidth: 180,
+    minHeight: 48,
+    paddingHorizontal: 20,
     alignItems: "center",
     justifyContent: "center",
-    cursor: "pointer",
+    borderWidth: 2,
+    borderColor: arcade.brand,
+    borderRadius: 8,
+    backgroundColor: arcade.accentSoft,
+  },
+  buttonHot: {
+    backgroundColor: arcade.accentSoftHot,
+  },
+  buttonDown: {
+    transform: [{ translateY: 1 }],
   },
 });
