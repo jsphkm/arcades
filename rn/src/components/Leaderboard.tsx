@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../theme-context";
-import { fetchLeaderboard, type ScoreRow } from "../scores/api";
+import {
+  fetchLeaderboard,
+  type ArcadeGameId,
+  type ScoreRow,
+} from "../scores/api";
 
 function formatWhen(iso: string): string {
   try {
@@ -13,7 +17,13 @@ function formatWhen(iso: string): string {
   }
 }
 
-export function Leaderboard({ refreshKey = 0 }: { refreshKey?: number }) {
+export function Leaderboard({
+  refreshKey = 0,
+  game = "snake",
+}: {
+  refreshKey?: number;
+  game?: ArcadeGameId;
+}) {
   const { colors, typography } = useTheme();
   const fontFamily = typography.fontFamily;
   const [rows, setRows] = useState<ScoreRow[]>([]);
@@ -24,7 +34,7 @@ export function Leaderboard({ refreshKey = 0 }: { refreshKey?: number }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchLeaderboard();
+      const res = await fetchLeaderboard(game);
       setRows(res.scores ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load leaderboard");
@@ -32,7 +42,7 @@ export function Leaderboard({ refreshKey = 0 }: { refreshKey?: number }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [game]);
 
   useEffect(() => {
     void load();

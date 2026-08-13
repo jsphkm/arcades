@@ -35,6 +35,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [loaded] = useFonts({
     JetBrainsMonoNL: require("../assets/fonts/JetBrainsMonoNL-Regular.ttf"),
+    PressStart2P: require("../assets/fonts/PressStart2P-Regular.ttf"),
   });
 
   useEffect(() => {

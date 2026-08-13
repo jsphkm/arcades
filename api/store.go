@@ -16,13 +16,15 @@ import (
 const (
 	MaxScore       = 1_000_000
 	LeaderboardCap = 100
-	leaderboardPK  = "LEADERBOARD"
+	GameSnake      = "snake"
+	GamePacman     = "pacman"
 )
 
 type ScoreRecord struct {
 	PK        string `dynamodbav:"pk" json:"-"`
 	SK        string `dynamodbav:"sk" json:"-"`
 	Type      string `dynamodbav:"type" json:"-"`
+	Game      string `dynamodbav:"game,omitempty" json:"game,omitempty"`
 	UserSub   string `dynamodbav:"userSub" json:"userSub"`
 	Email     string `dynamodbav:"email,omitempty" json:"email,omitempty"`
 	Score     int    `dynamodbav:"score" json:"score"`
@@ -30,6 +32,27 @@ type ScoreRecord struct {
 	Device    string `dynamodbav:"device,omitempty" json:"device,omitempty"`
 	UserAgent string `dynamodbav:"userAgent,omitempty" json:"userAgent,omitempty"`
 	RunID     string `dynamodbav:"runId" json:"runId"`
+}
+
+// NormalizeGame returns a known game id, defaulting legacy/empty to snake.
+func NormalizeGame(game string) string {
+	switch game {
+	case GamePacman:
+		return GamePacman
+	case GameSnake, "":
+		return GameSnake
+	default:
+		return ""
+	}
+}
+
+// leaderboardPKFor keeps the original LEADERBOARD partition for snake so
+// existing rows keep working; other games use LEADERBOARD#<game>.
+func leaderboardPKFor(game string) string {
+	if NormalizeGame(game) == GamePacman {
+		return "LEADERBOARD#pacman"
+	}
+	return "LEADERBOARD"
 }
 
 type Store struct {
@@ -62,6 +85,7 @@ func (s *Store) PutRun(ctx context.Context, rec ScoreRecord) error {
 	if rec.PlayedAt == "" {
 		rec.PlayedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	}
+	rec.Game = NormalizeGame(rec.Game)
 	rec.PK = userPK(rec.UserSub)
 	rec.SK = runSK(rec.PlayedAt, rec.RunID)
 	rec.Type = "run"
@@ -76,7 +100,7 @@ func (s *Store) PutRun(ctx context.Context, rec ScoreRecord) error {
 	return err
 }
 
-func (s *Store) ListUserRuns(ctx context.Context, sub string, limit int32, startSK string) ([]ScoreRecord, string, error) {
+func (s *Store) ListUserRuns(ctx context.Context, sub string, limit int32, startSK, game string) ([]ScoreRecord, string, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -89,6 +113,17 @@ func (s *Store) ListUserRuns(ctx context.Context, sub string, limit int32, start
 		},
 		ScanIndexForward: aws.Bool(false),
 		Limit:            aws.Int32(limit),
+	}
+	if g := NormalizeGame(game); game != "" && g != "" {
+		// Legacy snake rows may omit `game`; treat those as snake.
+		if g == GameSnake {
+			in.FilterExpression = aws.String("attribute_not_exists(game) OR game = :game OR game = :empty")
+			in.ExpressionAttributeValues[":game"] = &types.AttributeValueMemberS{Value: GameSnake}
+			in.ExpressionAttributeValues[":empty"] = &types.AttributeValueMemberS{Value: ""}
+		} else {
+			in.FilterExpression = aws.String("game = :game")
+			in.ExpressionAttributeValues[":game"] = &types.AttributeValueMemberS{Value: g}
+		}
 	}
 	if startSK != "" {
 		in.ExclusiveStartKey = map[string]types.AttributeValue{
@@ -105,6 +140,9 @@ func (s *Store) ListUserRuns(ctx context.Context, sub string, limit int32, start
 		var r ScoreRecord
 		if err := attributevalue.UnmarshalMap(item, &r); err != nil {
 			return nil, "", err
+		}
+		if r.Game == "" {
+			r.Game = GameSnake
 		}
 		items = append(items, r)
 	}
@@ -162,15 +200,16 @@ func (s *Store) ListAllRuns(ctx context.Context, limit int32, startPK, startSK s
 	return items, nextPK, nextSK, nil
 }
 
-func (s *Store) ListLeaderboard(ctx context.Context, limit int32) ([]ScoreRecord, error) {
+func (s *Store) ListLeaderboard(ctx context.Context, limit int32, game string) ([]ScoreRecord, error) {
 	if limit <= 0 || limit > LeaderboardCap {
 		limit = LeaderboardCap
 	}
+	pk := leaderboardPKFor(game)
 	out, err := s.db.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(s.table),
 		KeyConditionExpression: aws.String("pk = :pk"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk": &types.AttributeValueMemberS{Value: leaderboardPK},
+			":pk": &types.AttributeValueMemberS{Value: pk},
 		},
 		ScanIndexForward: aws.Bool(true),
 		Limit:            aws.Int32(limit),
@@ -184,17 +223,20 @@ func (s *Store) ListLeaderboard(ctx context.Context, limit int32) ([]ScoreRecord
 		if err := attributevalue.UnmarshalMap(item, &r); err != nil {
 			return nil, err
 		}
+		if r.Game == "" {
+			r.Game = NormalizeGame(game)
+		}
 		items = append(items, r)
 	}
 	return items, nil
 }
 
-func (s *Store) leaderboardCount(ctx context.Context) (int, error) {
+func (s *Store) leaderboardCount(ctx context.Context, game string) (int, error) {
 	out, err := s.db.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(s.table),
 		KeyConditionExpression: aws.String("pk = :pk"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk": &types.AttributeValueMemberS{Value: leaderboardPK},
+			":pk": &types.AttributeValueMemberS{Value: leaderboardPKFor(game)},
 		},
 		Select: types.SelectCount,
 	})
@@ -204,12 +246,12 @@ func (s *Store) leaderboardCount(ctx context.Context) (int, error) {
 	return int(out.Count), nil
 }
 
-func (s *Store) lowestLeaderboard(ctx context.Context) (*ScoreRecord, error) {
+func (s *Store) lowestLeaderboard(ctx context.Context, game string) (*ScoreRecord, error) {
 	out, err := s.db.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(s.table),
 		KeyConditionExpression: aws.String("pk = :pk"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk": &types.AttributeValueMemberS{Value: leaderboardPK},
+			":pk": &types.AttributeValueMemberS{Value: leaderboardPKFor(game)},
 		},
 		ScanIndexForward: aws.Bool(false),
 		Limit:            aws.Int32(1),
@@ -228,11 +270,12 @@ func (s *Store) lowestLeaderboard(ctx context.Context) (*ScoreRecord, error) {
 }
 
 func (s *Store) UpsertLeaderboard(ctx context.Context, rec ScoreRecord) (bool, error) {
-	count, err := s.leaderboardCount(ctx)
+	rec.Game = NormalizeGame(rec.Game)
+	count, err := s.leaderboardCount(ctx, rec.Game)
 	if err != nil {
 		return false, err
 	}
-	lowest, err := s.lowestLeaderboard(ctx)
+	lowest, err := s.lowestLeaderboard(ctx, rec.Game)
 	if err != nil {
 		return false, err
 	}
@@ -241,7 +284,7 @@ func (s *Store) UpsertLeaderboard(ctx context.Context, rec ScoreRecord) (bool, e
 	}
 
 	board := rec
-	board.PK = leaderboardPK
+	board.PK = leaderboardPKFor(rec.Game)
 	board.SK = leaderboardSK(rec.Score, rec.PlayedAt, rec.UserSub)
 	board.Type = "leaderboard"
 	item, err := attributevalue.MarshalMap(board)
@@ -256,14 +299,14 @@ func (s *Store) UpsertLeaderboard(ctx context.Context, rec ScoreRecord) (bool, e
 	}
 
 	for {
-		count, err = s.leaderboardCount(ctx)
+		count, err = s.leaderboardCount(ctx, rec.Game)
 		if err != nil {
 			return true, err
 		}
 		if count <= LeaderboardCap {
 			break
 		}
-		lowest, err = s.lowestLeaderboard(ctx)
+		lowest, err = s.lowestLeaderboard(ctx, rec.Game)
 		if err != nil || lowest == nil {
 			break
 		}

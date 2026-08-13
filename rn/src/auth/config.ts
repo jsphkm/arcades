@@ -7,6 +7,8 @@ export function arcadesAuthConfig(): IdentityAuthConfig | null {
   return {
     clientId,
     cognitoDomain,
-    storageKeyPrefix: "arcades.auth",
+    // Shared prefix name across Arcades / Account / Admin (storage is still
+    // per-origin; cross-app SSO uses the Cognito Hosted UI cookie).
+    storageKeyPrefix: "identity.auth",
   };
 }

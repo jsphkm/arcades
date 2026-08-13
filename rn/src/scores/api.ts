@@ -1,10 +1,13 @@
 import { config } from "../config";
 
+export type ArcadeGameId = "snake" | "pacman";
+
 export type ScoreRow = {
   rank?: number;
   userSub: string;
   email?: string;
   score: number;
+  game?: ArcadeGameId | string;
   playedAt: string;
   device?: string;
   userAgent?: string;
@@ -53,13 +56,19 @@ async function scoresFetch<T>(
   return body as T;
 }
 
-export function fetchLeaderboard() {
-  return scoresFetch<{ scores: ScoreRow[] }>("/v1/scores/leaderboard");
+export function fetchLeaderboard(game: ArcadeGameId = "snake") {
+  const q = new URLSearchParams({ game });
+  return scoresFetch<{ scores: ScoreRow[]; game: string }>(
+    `/v1/scores/leaderboard?${q}`,
+  );
 }
 
-export function fetchMyScores(token: string) {
+export function fetchMyScores(token: string, game?: ArcadeGameId) {
+  const q = new URLSearchParams();
+  if (game) q.set("game", game);
+  const suffix = q.toString() ? `?${q}` : "";
   return scoresFetch<{ scores: ScoreRow[]; nextCursor?: string }>(
-    "/v1/scores/me",
+    `/v1/scores/me${suffix}`,
     { token },
   );
 }
@@ -69,16 +78,18 @@ export function submitScore(
   score: number,
   device: string,
   userAgent: string,
+  game: ArcadeGameId = "snake",
 ) {
   return scoresFetch<{
     runId: string;
     playedAt: string;
     score: number;
+    game: string;
     onLeaderboard: boolean;
   }>("/v1/scores", {
     method: "POST",
     token,
-    body: JSON.stringify({ score, device, userAgent }),
+    body: JSON.stringify({ score, device, userAgent, game }),
   });
 }
 

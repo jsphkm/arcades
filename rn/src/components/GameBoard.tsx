@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Easing } from "react-native";
 import { COLS } from "../game/constants";
 import type { Snake } from "../game/snake";
-import { useTheme } from "../theme-context";
+import { arcade } from "../arcadeTheme";
+import { USE_NATIVE_DRIVER } from "../platform";
 
 type Props = {
   snake: Snake;
@@ -20,7 +21,6 @@ export function GameBoard({
   boardSize,
   flickerHead = false,
 }: Props) {
-  const { colors } = useTheme();
   const cell = boardSize / COLS;
   const headOpacity = useRef(new Animated.Value(1)).current;
 
@@ -35,13 +35,13 @@ export function GameBoard({
           toValue: 0.15,
           duration: 800,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(headOpacity, {
           toValue: 1,
           duration: 800,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ])
     );
@@ -75,7 +75,7 @@ export function GameBoard({
           top: part.y * cell,
           width: cell,
           height: cell,
-          backgroundColor: colors.button,
+          backgroundColor: "#3d8c40",
         };
         if (isHead && flickerHead) {
           return (

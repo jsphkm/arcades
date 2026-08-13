@@ -3,6 +3,8 @@ export type ResolvedScheme = "light" | "dark";
 
 export const typography = {
   fontFamily: "JetBrainsMonoNL",
+  /** Pixel face for arcade chrome (Press Start 2P). */
+  pixelFamily: "PressStart2P",
   body: 16,
 };
 
