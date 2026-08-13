@@ -37,7 +37,9 @@ function writeStoredHighScore(value: number) {
   localStorage.setItem(HIGH_SCORE_KEY, String(value));
 }
 
-export function useSnakeGame() {
+export function useSnakeGame(opts?: {
+  onGameOver?: (finalScore: number) => void;
+}) {
   const [status, setStatus] = useState<GameState>("menu");
   const [snake, setSnake] = useState<Snake | undefined>();
   const [food, setFood] = useState<Point | undefined>();
@@ -48,6 +50,8 @@ export function useSnakeGame() {
   const [frame, setFrame] = useState(0);
   const statusRef = useRef(status);
   const activeDirRef = useRef(activeDir);
+  const onGameOverRef = useRef(opts?.onGameOver);
+  onGameOverRef.current = opts?.onGameOver;
   statusRef.current = status;
   activeDirRef.current = activeDir;
 
@@ -61,18 +65,22 @@ export function useSnakeGame() {
 
   const syncFromWorld = useCallback(() => {
     const world = getWorld();
+    const prev = statusRef.current;
     setStatus(world.state);
     setSnake(world.snake);
     setFood(world.food ? { ...world.food } : undefined);
     setScore(world.score);
-    setHighScoreState((prev) => {
-      if (world.highScore > prev) writeStoredHighScore(world.highScore);
+    setHighScoreState((hs) => {
+      if (world.highScore > hs) writeStoredHighScore(world.highScore);
       return world.highScore;
     });
     setFrame((f) => f + 1);
     if (world.state !== "playing") {
       setActiveDir(null);
       setSteerBlocked(false);
+    }
+    if (prev === "playing" && world.state === "dead") {
+      onGameOverRef.current?.(world.score);
     }
   }, []);
 
