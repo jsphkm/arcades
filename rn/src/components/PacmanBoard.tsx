@@ -181,7 +181,7 @@ function drawPac(
   else if (dir.y === -1) ang = -Math.PI / 2;
   else if (dir.y === 1) ang = Math.PI / 2;
 
-  // Halloween doodle: 3-frame munch @ 15fps (closed → mid → wide).
+  // 3-frame munch @ 15fps (closed → mid → wide).
   const frame = Math.floor(mouth) % 3;
   const open = frame === 0 ? 0.05 : frame === 1 ? 0.45 : 0.8;
   ctx.fillStyle = PAC;
@@ -194,6 +194,41 @@ function drawPac(
     ctx.closePath();
   }
   ctx.fill();
+}
+
+function drawPacDeath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  cell: number,
+  t: number,
+) {
+  const cx = (x + 0.5) * cell;
+  const cy = (y + 0.5) * cell;
+  const r = (ACTOR_PAC * cell) / 2;
+  if (t < 0.75) {
+    const open = 0.25 + (t / 0.75) * (Math.PI - 0.25);
+    const ang = -Math.PI / 2;
+    ctx.fillStyle = PAC;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, ang + open, ang + Math.PI * 2 - open, false);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+  const u = (t - 0.75) / 0.25;
+  ctx.strokeStyle = PAC;
+  ctx.lineWidth = Math.max(1.5, cell * 0.06);
+  for (let i = 0; i < 6; i += 1) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 3;
+    const inner = r * (0.15 + u * 0.2);
+    const outer = r * (0.55 + u * 0.7);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+    ctx.lineTo(cx + Math.cos(a) * outer, cy + Math.sin(a) * outer);
+    ctx.stroke();
+  }
 }
 
 function drawGhost(
@@ -396,11 +431,15 @@ function paint(
   }
 
   const flash = snap.frightFlash;
-  for (const g of snap.ghosts) {
-    drawGhost(ctx, g, cell, t, flash);
+  if (snap.phase !== "dying") {
+    for (const g of snap.ghosts) {
+      drawGhost(ctx, g, cell, t, flash);
+    }
   }
 
-  if (!snap.eatPopup) {
+  if (snap.phase === "dying") {
+    drawPacDeath(ctx, snap.pac.x, snap.pac.y, cell, snap.deathT);
+  } else if (!snap.eatPopup) {
     drawPac(ctx, snap.pac.x, snap.pac.y, cell, snap.pac.dir, snap.pac.mouth);
   } else {
     const p = snap.eatPopup;
@@ -413,6 +452,18 @@ function paint(
       String(p.points),
       (p.x + 0.5) * cell,
       (p.y + 0.5) * cell - rise,
+    );
+  }
+
+  if (snap.phase === "ready" || snap.phase === "dead") {
+    ctx.font = `bold ${Math.max(14, cell * 0.85)}px JetBrainsMonoNL, monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = snap.phase === "ready" ? "#ffff00" : "#ff0000";
+    ctx.fillText(
+      snap.phase === "ready" ? "READY!" : "GAME OVER",
+      14.0 * cell,
+      (17 + 0.5) * cell,
     );
   }
 
