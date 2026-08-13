@@ -215,7 +215,10 @@ export function ProfileMenu() {
               <Pressable
                 onPress={() => {
                   setOpen(false);
-                  void Linking.openURL(config.accountUrl());
+                  const base = config.accountUrl();
+                  if (!base) return;
+                  // Force Account to retry Cognito silent SSO for this visit.
+                  void Linking.openURL(`${base}/?sso=1`);
                 }}
                 style={({ pressed }) => [
                   styles.signOutBtn,

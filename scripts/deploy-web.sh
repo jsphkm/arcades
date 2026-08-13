@@ -95,6 +95,15 @@ if ! rg -q -F "$expected" dist -g '*.js'; then
 fi
 echo "verified scores API URL in bundle: $expected"
 
+if [[ -n "${EXPO_PUBLIC_ACCOUNT_URL:-}" ]]; then
+  account_expected="$(echo "$EXPO_PUBLIC_ACCOUNT_URL" | sed 's:/*$::')"
+  if ! rg -q -F "$account_expected" dist -g '*.js'; then
+    echo "export missing expected account URL: $account_expected" >&2
+    exit 1
+  fi
+  echo "verified account URL in bundle: $account_expected"
+fi
+
 cd "$ROOT/cmd/deploy-web"
 export ARCADES_WEB_DIST="${ARCADES_WEB_DIST:-$ROOT/rn/dist}"
 export SNAKE_WEB_DIST="$ARCADES_WEB_DIST"
