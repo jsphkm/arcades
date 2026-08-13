@@ -1,6 +1,13 @@
 export type Dir = { x: number; y: number };
 
-export type GamePhase = "menu" | "playing" | "paused" | "dead" | "won";
+export type GamePhase = 
+    | "menu"
+    | "ready"
+    | "playing"
+    | "paused"
+    | "dying"
+    | "dead"
+    | "won";
 
 export type GhostMode =
   | "scatter"
@@ -58,6 +65,8 @@ export type PacmanSnapshot = {
   eatPopup: EatPopup | null;
   frame: number;
   showInfo: boolean;
+  /** 0–1 while dying; used to draw the collapse. */
+  deathT: number;
 };
 
 export const DIRS: Dir[] = [

@@ -22,54 +22,39 @@ import {
   type PacmanSnapshot,
 } from "./types";
 
-/**
- * Google Pac-Man Halloween doodle (Phaser, tileSize=16):
- *   Pac speed=120, ghost=80 / fright=55 / tunnel=45 / eyes=280 (px/sec)
- *   → tiles/sec = pxPerSec / 16
- * Munch anim: 3 frames @ frameRate 15.
- */
 const TILE_PX = 16;
 const pxSpeed = (pxPerSec: number) => pxPerSec / TILE_PX;
-
+const READY_SEC = 5;
+const DYING_SEC = 2.5; // ~150 frames @ 60fps
 const SPEED_PAC = pxSpeed(120); // 7.5
 const SPEED_GHOST = pxSpeed(80); // 5
-/** Halloween keeps Pac at 120 during fright (no separate boost). */
 const SPEED_PAC_FRIGHT = SPEED_PAC;
 const SPEED_GHOST_FRIGHT = pxSpeed(55); // 3.4375
 const SPEED_GHOST_TUNNEL = pxSpeed(45); // 2.8125
 const SPEED_GHOST_EATEN = pxSpeed(280); // 17.5
-/** Mouth: 3-frame munch @ 15fps (doodle `frameRate: 15`). */
 const MOUTH_FPS = 15;
 const MOUTH_FRAMES = 3;
 
-/** Superfast RF_SPEED_RATIO_FROM_LEVEL */
 const SPEED_RATIO = [
   1, 1.02, 1.04, 1.06, 1.11, 1.16, 1.2, 1.24, 1.3, 1.35, 1.4, 1.45, 1.5, 1.52,
   1.55,
 ];
 
-/** Superfast RF_ENERGIZER_DURATIONS (seconds) */
 const ENERGIZER_SEC = [
   6, 5, 4.5, 4, 3.7, 3, 3.5, 3, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1,
 ];
 
-/** Superfast RF_FRUIT_GEN_DOT_LIMIT_LIST */
 const FRUIT_AT = [25, 100, 180];
 const FRUIT_LIFE = 9;
 const GHOST_EAT_POINTS = [200, 400, 800, 1600];
-/** Superfast RF_POWER_PELLET_BLINKING_PERIOD_IN_FRAMES */
 export const POWER_BLINK_FRAMES = 20;
-/** Superfast energizer.pointsDuration (seconds freeze after eating a ghost) */
 const POINTS_FREEZE_SEC = 1;
-/** Superfast eatPauseFramesLeft: pellet=1, energizer=3 @ 60fps */
 const EAT_PAUSE_PELLET = 1 / 60;
 const EAT_PAUSE_POWER = 3 / 60;
-/** Superfast energizer.flashInterval / flashes[] */
 const FRIGHT_FLASH_INTERVAL = 14 / 60;
 const FRIGHT_FLASHES = [5, 5, 5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 3, 5, 3, 3, 0, 3];
 const CENTER_EPS = 0.05;
 const COLLIDE_R2 = 0.45 * 0.45;
-/** Superfast doorTile (13,14) with 3-row pad → our (13,11) */
 const DOOR = { x: 13, y: 11 };
 const HOME = { x: 14, y: 14 };
 
@@ -96,11 +81,14 @@ type Engine = {
   showInfo: boolean;
   time: number;
   waveT: number;
-  /** Pac briefly pauses after eating a pellet (Superfast eatPauseFramesLeft). */
+  /** Pac briefly pauses after eating a pellet */
   eatPauseLeft: number;
-  /** After eating a ghost, freeze everyone except eyes (Superfast pointsDuration). */
+  /** After eating a ghost, freeze everyone except eyes */
   freezeLeft: number;
   eatPopup: EatPopup | null;
+    readyLeft: number;
+    dyingLeft: number;
+    deathT: number;
 };
 
 let eng: Engine | null = null;
@@ -200,15 +188,25 @@ function baseEngine(highScore: number): Engine {
     eatPauseLeft: 0,
     freezeLeft: 0,
     eatPopup: null,
+        readyLeft: 0,
+        dyingLeft: 0,
+        deathT: 0,
   };
 }
 
 export function startPacman() {
   const high = eng?.highScore ?? 0;
   eng = baseEngine(high);
-  eng.phase = "playing";
   eng.lives = 4;
   resetPositions(eng, false);
+    beginReady(eng);
+}
+
+function beginReady(e: Engine) {
+    e.phase = "ready";
+    e.readyLeft = READY_SEC;
+    e.dyingLeft = 0;
+    e.deathT = 0;
 }
 
 export function setHighScore(value: number) {
@@ -222,7 +220,8 @@ export function setHighScore(value: number) {
 }
 
 export function queueDir(dir: Dir) {
-  if (!eng || eng.phase !== "playing") return;
+  if (!eng || (eng.phase !== "playing" &&
+        eng.phase !== "ready")) return;
   eng.queued = dir;
 }
 
@@ -375,7 +374,7 @@ function pickGhostDir(
   dir: Dir,
   target: { x: number; y: number },
 ): Dir {
-  // Superfast: apply reverse at tile center, then keep that heading.
+  // Apply reverse at tile center, then keep that heading.
   if (g.sigReverse) {
     g.sigReverse = false;
     const rev = opposite(dir);
@@ -694,8 +693,11 @@ function collide(e: Engine) {
       g.mode !== "leaving"
     ) {
       e.lives -= 1;
-      if (e.lives <= 0) e.phase = "dead";
-      else resetPositions(e, true);
+        e.phase = "dying";
+            e.dyingLeft = DYING_SEC;
+            e.deathT = 0;
+            e.eatPopup = null;
+            e.freezeLeft = 0;
       return;
     }
   }
@@ -720,7 +722,7 @@ function maybeSpawnFruit(e: Engine) {
 function advanceStage(e: Engine) {
   e.stage += 1;
   resetPositions(e, false);
-  e.phase = "playing";
+    beginReady(e);
 }
 
 function frightFlash(e: Engine): boolean {
@@ -729,26 +731,47 @@ function frightFlash(e: Engine): boolean {
     FRIGHT_FLASHES[Math.min(FRIGHT_FLASHES.length - 1, e.stage - 1)] ?? 5;
   if (flashes <= 0) return false;
   const band = Math.floor(e.frightenedLeft / FRIGHT_FLASH_INTERVAL);
-  // Superfast isFlash: flash only in the final 2*flashes-1 bands.
+  // Flash only in the final 2*flashes-1 bands.
   if (band > 2 * flashes - 1) return false;
   return band % 2 === 0;
 }
 
-/** Continuous sim step — call from rAF with dt seconds (Superfast ~60fps). */
+/** Continuous sim step — call from rAF with dt seconds. */
 export function tickPacman(dt = 1 / 60): GamePhase {
   if (!eng) return "menu";
-  if (eng.phase !== "playing") return eng.phase;
+  if (
+        eng.phase !== "playing" &&
+        eng.phase !== "ready" &&
+        eng.phase !== "dying"
+    ) return eng.phase;
 
   const e = eng;
   const t = Math.min(0.05, Math.max(0, dt));
   e.time += t;
 
+    if (e.phase === "ready") {
+        e.readyLeft -= t;
+        if (e.readyLeft <= 0) e.phase = "playing";
+        return e.phase;
+    }
+    if (e.phase === "dying") {
+        e.dyingLeft -= t;
+        e.deathT = 1 - Math.max(0, e.dyingLeft) / DYING_SEC;
+        if (e.dyingLeft <= 0) {
+            if (e.lives <= 0) e.phase = "dead";
+            else {
+                    resetPositions(e, true);
+                    beginReady(e);
+            }
+        }
+        return e.phase;
+    }
   if (e.eatPopup) {
     e.eatPopup.left -= t;
     if (e.eatPopup.left <= 0) e.eatPopup = null;
   }
 
-  // Points freeze: only eyes / entering move (Superfast showingPoints).
+  // Points freeze: only eyes / entering move.
   if (e.freezeLeft > 0) {
     e.freezeLeft -= t;
     for (const g of e.ghosts) {
@@ -793,7 +816,7 @@ export function tickPacman(dt = 1 / 60): GamePhase {
     e.pacY = moved.y;
     e.pacDir = moved.dir;
     e.queued = moved.queued;
-    // Doodle pauses munch when Pac is frozen/idle; advance only while moving.
+    // Pause munch when Pac is frozen/idle; advance only while moving.
     e.mouth = (e.mouth + t * MOUTH_FPS) % MOUTH_FRAMES;
     eatAt(e);
   }
@@ -820,6 +843,7 @@ export function isFrightFlash(): boolean {
 export function getPacmanSnapshot(): PacmanSnapshot {
   if (!eng) {
     return {
+            deathT: 0,
       phase: "menu",
       score: 0,
       highScore: 0,
@@ -839,6 +863,7 @@ export function getPacmanSnapshot(): PacmanSnapshot {
     };
   }
   return {
+        deathT: eng?.deathT ?? 0,
     phase: eng.phase,
     score: eng.score,
     highScore: eng.highScore,
