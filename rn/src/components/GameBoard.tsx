@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Easing } from "react-native";
 import { COLS } from "../game/constants";
 import type { Snake } from "../game/snake";
-import { useTheme } from "../theme-context";
+import { palette } from "../theme";
+import { USE_NATIVE_DRIVER } from "../platform";
 
 type Props = {
   snake: Snake;
@@ -13,6 +14,26 @@ type Props = {
   flickerHead?: boolean;
 };
 
+/** Dark-mode snake fill — board is always the dark arcade stage. */
+const SNAKE_COLOR = palette.dark.button;
+const FOOD_COLOR = "#ff0000";
+
+function cellBox(
+  x: number,
+  y: number,
+  cell: number,
+  backgroundColor: string,
+) {
+  return {
+    position: "absolute" as const,
+    left: x * cell,
+    top: y * cell,
+    width: cell,
+    height: cell,
+    backgroundColor,
+  };
+}
+
 export function GameBoard({
   snake,
   food,
@@ -20,8 +41,9 @@ export function GameBoard({
   boardSize,
   flickerHead = false,
 }: Props) {
-  const { colors } = useTheme();
-  const cell = boardSize / COLS;
+  // Integer cell size so snake segments and food are identical squares.
+  const cell = Math.max(1, Math.floor(boardSize / COLS));
+  const gridSize = cell * COLS;
   const headOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -35,15 +57,15 @@ export function GameBoard({
           toValue: 0.15,
           duration: 800,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(headOpacity, {
           toValue: 1,
           duration: 800,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
-      ])
+      ]),
     );
     loop.start();
     return () => {
@@ -55,28 +77,14 @@ export function GameBoard({
   const headIndex = snake.body.length - 1;
 
   return (
-    <View style={[styles.grid, { width: boardSize, height: boardSize }]}>
+    <View style={[styles.grid, { width: gridSize, height: gridSize }]}>
       <View
         key={`f-${frame}-${food.x}-${food.y}`}
-        style={{
-          position: "absolute",
-          left: food.x * cell,
-          top: food.y * cell,
-          width: cell,
-          height: cell,
-          backgroundColor: "#ff0000",
-        }}
+        style={cellBox(food.x, food.y, cell, FOOD_COLOR)}
       />
       {snake.body.map((part, i) => {
         const isHead = i === headIndex;
-        const box = {
-          position: "absolute" as const,
-          left: part.x * cell,
-          top: part.y * cell,
-          width: cell,
-          height: cell,
-          backgroundColor: colors.button,
-        };
+        const box = cellBox(part.x, part.y, cell, SNAKE_COLOR);
         if (isHead && flickerHead) {
           return (
             <Animated.View
