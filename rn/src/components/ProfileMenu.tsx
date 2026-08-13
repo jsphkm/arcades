@@ -6,6 +6,7 @@ import {
   View,
   type View as ViewType,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useIdentityAuth } from "identity-sdk";
 import { useTheme } from "../theme-context";
 
@@ -48,6 +49,7 @@ export function ProfileMenu() {
   const colors = chrome[scheme];
   const fontFamily = typography.fontFamily;
   const { session, signOut, ready } = useIdentityAuth();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<ViewType | null>(null);
   const email = session?.email ?? "admin";
@@ -191,6 +193,34 @@ export function ProfileMenu() {
           </View>
 
           <View style={styles.footerActions}>
+            <Pressable
+              onPress={() => {
+                setOpen(false);
+                router.push("/account");
+              }}
+              style={({ pressed }) => [
+                styles.signOutBtn,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: pressed
+                    ? colors.iconHover
+                    : colors.surfaceElevated,
+                  borderRadius: radii.pill,
+                  marginBottom: 8,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  fontFamily,
+                  fontSize: 14,
+                  fontWeight: "600",
+                  color: colors.text,
+                }}
+              >
+                Account
+              </Text>
+            </Pressable>
             <Pressable
               onPress={() => {
                 setOpen(false);

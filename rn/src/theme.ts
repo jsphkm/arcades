@@ -20,6 +20,10 @@ export const palette = {
     buttonPressed: "#282828",
     buttonLabel: "#ffffff",
     hint: "#000000",
+    text: "#000000",
+    muted: "#555555",
+    border: "#c8c8c8",
+    accent: "#3858e9",
     statusBar: "dark" as const,
   },
   dark: {
@@ -29,6 +33,10 @@ export const palette = {
     buttonPressed: "#d0d0d0",
     buttonLabel: "#000000",
     hint: "#eeeeee",
+    text: "#eeeeee",
+    muted: "#aaaaaa",
+    border: "#3a3a3a",
+    accent: "#a8c7fa",
     statusBar: "light" as const,
   },
 };

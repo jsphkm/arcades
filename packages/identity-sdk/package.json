@@ -10,5 +10,5 @@
     "react": "*",
     "react-native": "*"
   },
-  "description": "Vendored from identity-console/sdk. Run npm run sync:identity-sdk to refresh."
+  "description": "Vendored from admin-dashboard/sdk. Run npm run sync:identity-sdk to refresh."
 }

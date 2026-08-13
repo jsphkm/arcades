@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# Copy identity-sdk from a local Identity checkout into packages/identity-sdk.
-# Default source: ../Identity/sdk (sibling of this repo). Override with IDENTITY_SDK_PATH.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="${IDENTITY_SDK_PATH:-$ROOT/../Identity/sdk}"
+SRC="${IDENTITY_SDK_PATH:-$ROOT/../admin-dashboard/sdk}"
 DEST="$ROOT/packages/identity-sdk"
 
 if [[ ! -f "$SRC/package.json" || ! -d "$SRC/src" ]]; then
   echo "identity-sdk source not found at: $SRC" >&2
-  echo "Clone identity-console as a sibling, or set IDENTITY_SDK_PATH." >&2
+  echo "Clone admin-dashboard as a sibling, or set IDENTITY_SDK_PATH." >&2
   exit 1
 fi
 
@@ -29,7 +27,7 @@ const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
 delete pkg.scripts;
 delete pkg.devDependencies;
 pkg.description =
-  "Vendored from identity-console/sdk. Run npm run sync:identity-sdk to refresh.";
+  "Vendored from admin-dashboard/sdk. Run npm run sync:identity-sdk to refresh.";
 fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
 EOF
 fi

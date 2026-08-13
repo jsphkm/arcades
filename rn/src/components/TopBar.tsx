@@ -1,8 +1,16 @@
+import { Link, type Href } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useIdentityAuth } from "identity-sdk";
 import { useTheme } from "../theme-context";
-import { snakeAuthConfig } from "../auth/config";
+import { arcadesAuthConfig } from "../auth/config";
 import { ProfileMenu } from "./ProfileMenu";
+
+type TopBarProps = {
+  /** Product brand in the bar. */
+  title?: string;
+  /** When set, show a High scores link (Snake routes). */
+  highScoresHref?: Href;
+};
 
 function SignInButton({ onPress }: { onPress: () => void }) {
   const { typography } = useTheme();
@@ -40,9 +48,12 @@ function AccountSlot() {
   return <SignInButton onPress={() => void signIn()} />;
 }
 
-export function TopBar() {
+export function TopBar({
+  title = "Arcades",
+  highScoresHref,
+}: TopBarProps = {}) {
   const { colors, scheme, typography } = useTheme();
-  const authEnabled = snakeAuthConfig() !== null;
+  const authEnabled = arcadesAuthConfig() !== null;
   const titleColor = scheme === "dark" ? "#ffffff" : "#000000";
 
   return (
@@ -55,17 +66,48 @@ export function TopBar() {
         },
       ]}
     >
-      <Text
-        style={{
-          fontFamily: typography.fontFamily,
-          fontSize: 18,
-          fontWeight: "600",
-          color: titleColor,
-        }}
-      >
-        Snake
-      </Text>
+      <Link href="/" asChild>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Arcades home"
+          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Text
+            style={{
+              fontFamily: typography.fontFamily,
+              fontSize: 18,
+              fontWeight: "600",
+              color: titleColor,
+            }}
+          >
+            {title}
+          </Text>
+        </Pressable>
+      </Link>
       <View style={styles.toolbarActions}>
+        {highScoresHref ? (
+          <Link href={highScoresHref} asChild>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="High scores"
+              style={({ pressed }) => [
+                styles.navLink,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Text
+                style={{
+                  fontFamily: typography.fontFamily,
+                  fontSize: 14,
+                  fontWeight: "600",
+                  color: titleColor,
+                }}
+              >
+                High scores
+              </Text>
+            </Pressable>
+          </Link>
+        ) : null}
         {authEnabled ? <AccountSlot /> : null}
       </View>
     </View>
@@ -87,7 +129,13 @@ const styles = StyleSheet.create({
   toolbarActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 12,
+  },
+  navLink: {
+    minHeight: 36,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   signInBtn: {
     minHeight: 36,

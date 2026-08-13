@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { IdentityAuthProvider } from "identity-sdk";
 import { ThemeProvider, useTheme } from "../theme-context";
-import { snakeAuthConfig } from "../auth/config";
+import { arcadesAuthConfig } from "../auth/config";
 
 function ThemedStack() {
   const { colors } = useTheme();
@@ -27,7 +27,7 @@ function ThemedStack() {
 }
 
 export default function RootLayout() {
-  const authConfig = snakeAuthConfig();
+  const authConfig = arcadesAuthConfig();
 
   return (
     <ThemeProvider>

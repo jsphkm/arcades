@@ -22,16 +22,16 @@ type Principal struct {
 	Sub     string
 	Email   string
 	IsAdmin bool
-	IsUser  bool // snake client user
+	IsUser  bool // Arcades app-client user
 }
 
 type Auth struct {
-	secretARN     string
-	secrets       *secretsmanager.Client
-	userPoolID    string
-	region        string
-	snakeClientID string
-	adminGroup    string
+	secretARN      string
+	secrets        *secretsmanager.Client
+	userPoolID     string
+	region         string
+	arcadesClientID string
+	adminGroup     string
 
 	mu          sync.Mutex
 	apiKey      string
@@ -49,12 +49,12 @@ func NewAuth(secrets *secretsmanager.Client) *Auth {
 	}
 	poolID := os.Getenv("USER_POOL_ID")
 	return &Auth{
-		secretARN:     os.Getenv("ADMIN_API_KEY_SECRET_ARN"),
-		secrets:       secrets,
-		userPoolID:    poolID,
-		region:        region,
-		snakeClientID: firstEnv("ARCADES_CLIENT_ID", "SNAKE_CLIENT_ID"),
-		adminGroup:    envOr("ADMIN_GROUP_NAME", "identity-admins"),
+		secretARN:       os.Getenv("ADMIN_API_KEY_SECRET_ARN"),
+		secrets:         secrets,
+		userPoolID:      poolID,
+		region:          region,
+		arcadesClientID: firstEnv("ARCADES_CLIENT_ID", "SNAKE_CLIENT_ID"),
+		adminGroup:      envOr("ADMIN_GROUP_NAME", "identity-admins"),
 	}
 }
 
@@ -74,8 +74,12 @@ func firstEnv(keys ...string) string {
 	return ""
 }
 
+func (a *Auth) issuer() string {
+	return fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", a.region, a.userPoolID)
+}
+
 func (a *Auth) jwksURL() string {
-	return fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s/.well-known/jwks.json", a.region, a.userPoolID)
+	return a.issuer() + "/.well-known/jwks.json"
 }
 
 func (a *Auth) AuthorizeAPIKey(ctx context.Context, req events.APIGatewayV2HTTPRequest) bool {
@@ -83,61 +87,43 @@ func (a *Auth) AuthorizeAPIKey(ctx context.Context, req events.APIGatewayV2HTTPR
 	if err != nil || key == "" {
 		return false
 	}
-	for k, v := range req.Headers {
-		if strings.EqualFold(k, "x-api-key") && v == key {
-			return true
-		}
-	}
-	return false
+	return header(req, "x-api-key") == key
 }
 
 func (a *Auth) AuthorizeBearer(ctx context.Context, req events.APIGatewayV2HTTPRequest) (*Principal, error) {
-	authz := header(req, "authorization")
-	if authz == "" {
-		return nil, fmt.Errorf("missing authorization")
-	}
-	raw, ok := strings.CutPrefix(authz, "Bearer ")
-	if !ok {
-		raw, ok = strings.CutPrefix(authz, "bearer ")
-		if !ok {
-			return nil, fmt.Errorf("invalid authorization")
-		}
-	}
-	set, err := a.jwks(ctx)
+	raw, err := bearerToken(req)
 	if err != nil {
 		return nil, err
 	}
-	tok, err := jwt.Parse([]byte(raw), jwt.WithKeySet(set), jwt.WithValidate(true))
+	tok, err := a.parseAccessToken(ctx, raw)
 	if err != nil {
 		return nil, err
 	}
-	issuer := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", a.region, a.userPoolID)
-	if tok.Issuer() != issuer {
-		return nil, fmt.Errorf("bad issuer")
-	}
-	use, ok := tok.Get("token_use")
-	if !ok {
-		return nil, fmt.Errorf("missing token_use")
-	}
-	if s, _ := use.(string); s != "access" {
-		return nil, fmt.Errorf("access token required")
-	}
-	clientID := ""
-	if cid, ok := tok.Get("client_id"); ok {
-		clientID, _ = cid.(string)
-	}
+	clientID := claimString(tok, "client_id")
 	p := &Principal{
 		Sub:     tok.Subject(),
+		Email:   claimString(tok, "email"),
 		IsAdmin: a.inAdminGroup(tok),
-		IsUser:  a.snakeClientID == "" || clientID == a.snakeClientID,
-	}
-	if email, ok := tok.Get("email"); ok {
-		p.Email, _ = email.(string)
+		IsUser:  a.arcadesClientID == "" || clientID == a.arcadesClientID,
 	}
 	if p.Sub == "" {
 		return nil, fmt.Errorf("missing sub")
 	}
 	return p, nil
+}
+
+func (a *Auth) parseAccessToken(ctx context.Context, raw string) (jwt.Token, error) {
+	set, err := a.jwks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return jwt.Parse(
+		[]byte(raw),
+		jwt.WithKeySet(set),
+		jwt.WithValidate(true),
+		jwt.WithIssuer(a.issuer()),
+		jwt.WithClaimValue("token_use", "access"),
+	)
 }
 
 func (a *Auth) automationAPIKey(ctx context.Context) (string, error) {
@@ -199,6 +185,30 @@ func (a *Auth) jwks(ctx context.Context) (jwk.Set, error) {
 	a.jwksCache = set
 	a.jwksExpiry = time.Now().Add(time.Hour)
 	return set, nil
+}
+
+func bearerToken(req events.APIGatewayV2HTTPRequest) (string, error) {
+	authz := header(req, "authorization")
+	if authz == "" {
+		return "", fmt.Errorf("missing authorization")
+	}
+	raw, ok := strings.CutPrefix(authz, "Bearer ")
+	if !ok {
+		raw, ok = strings.CutPrefix(authz, "bearer ")
+		if !ok {
+			return "", fmt.Errorf("invalid authorization")
+		}
+	}
+	return raw, nil
+}
+
+func claimString(tok jwt.Token, key string) string {
+	v, ok := tok.Get(key)
+	if !ok {
+		return ""
+	}
+	s, _ := v.(string)
+	return s
 }
 
 func header(req events.APIGatewayV2HTTPRequest, name string) string {
