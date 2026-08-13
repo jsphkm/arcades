@@ -1,4 +1,4 @@
-module snake-js/deploy-web
+module arcades/deploy-web
 
 go 1.24
 

@@ -21,14 +21,23 @@ import (
 func main() {
 	ctx := context.Background()
 
-	bucket := os.Getenv("SNAKE_WEB_BUCKET")
-	distID := os.Getenv("SNAKE_CF_DISTRIBUTION_ID")
-	root := os.Getenv("SNAKE_WEB_DIST")
+	bucket := os.Getenv("ARCADES_WEB_BUCKET")
+	if bucket == "" {
+		bucket = os.Getenv("SNAKE_WEB_BUCKET")
+	}
+	distID := os.Getenv("ARCADES_CF_DISTRIBUTION_ID")
+	if distID == "" {
+		distID = os.Getenv("SNAKE_CF_DISTRIBUTION_ID")
+	}
+	root := os.Getenv("ARCADES_WEB_DIST")
+	if root == "" {
+		root = os.Getenv("SNAKE_WEB_DIST")
+	}
 	if root == "" {
 		root = "rn/dist"
 	}
 	if bucket == "" || distID == "" {
-		fatalf("set SNAKE_WEB_BUCKET and SNAKE_CF_DISTRIBUTION_ID (from cdk deploy outputs)")
+		fatalf("set ARCADES_WEB_BUCKET and ARCADES_CF_DISTRIBUTION_ID (use scripts/deploy-web.sh prod|staging)")
 	}
 
 	absRoot, err := filepath.Abs(root)
@@ -108,7 +117,7 @@ func main() {
 		fatalf("upload: %v", err)
 	}
 
-	callerRef := fmt.Sprintf("snake-web-%d", time.Now().UnixNano())
+	callerRef := fmt.Sprintf("arcades-web-%d", time.Now().UnixNano())
 	_, err = cfc.CreateInvalidation(ctx, &cloudfront.CreateInvalidationInput{
 		DistributionId: aws.String(distID),
 		InvalidationBatch: &cftypes.InvalidationBatch{
