@@ -26,11 +26,9 @@ import { ProfileMenu } from "./ProfileMenu";
 
 type ArcadeShellProps = {
   children?: ReactNode;
-  /** Optional link shown in the main pane toolbar (e.g. Snake high scores). */
   highScoresHref?: Href;
 };
 
-/** Drawer width when open (overlays; does not reserve layout space). */
 export const ARCADE_SIDEBAR_W = 280;
 
 const OPEN_MS = 240;
