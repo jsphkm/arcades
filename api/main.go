@@ -61,14 +61,21 @@ func (h *Handler) Serve(ctx context.Context, req events.APIGatewayV2HTTPRequest)
 
 func (h *Handler) getLeaderboard(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	limit := int32(LeaderboardCap)
+	game := GameSnake
 	if req.QueryStringParameters != nil {
 		if v := req.QueryStringParameters["limit"]; v != "" {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				limit = int32(n)
 			}
 		}
+		if v := req.QueryStringParameters["game"]; v != "" {
+			game = v
+		}
 	}
-	items, err := h.store.ListLeaderboard(ctx, limit)
+	if NormalizeGame(game) == "" {
+		return corsJSON(http.StatusBadRequest, map[string]string{"error": "invalid game"}), nil
+	}
+	items, err := h.store.ListLeaderboard(ctx, limit, game)
 	if err != nil {
 		return corsJSON(http.StatusInternalServerError, map[string]string{"error": err.Error()}), nil
 	}
@@ -76,7 +83,7 @@ func (h *Handler) getLeaderboard(ctx context.Context, req events.APIGatewayV2HTT
 	for i, r := range items {
 		out = append(out, scoreJSON(r, i+1))
 	}
-	resp := corsJSON(http.StatusOK, map[string]any{"scores": out})
+	resp := corsJSON(http.StatusOK, map[string]any{"scores": out, "game": NormalizeGame(game)})
 	resp.Headers["cache-control"] = "public, max-age=5"
 	return resp, nil
 }
@@ -90,6 +97,7 @@ func (h *Handler) postScore(ctx context.Context, req events.APIGatewayV2HTTPRequ
 		Score     int    `json:"score"`
 		Device    string `json:"device"`
 		UserAgent string `json:"userAgent"`
+		Game      string `json:"game"`
 	}
 	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 		return corsJSON(http.StatusBadRequest, map[string]string{"error": "invalid json"}), nil
@@ -97,7 +105,12 @@ func (h *Handler) postScore(ctx context.Context, req events.APIGatewayV2HTTPRequ
 	if body.Score < 0 || body.Score > MaxScore {
 		return corsJSON(http.StatusBadRequest, map[string]string{"error": "score out of range"}), nil
 	}
+	game := NormalizeGame(body.Game)
+	if game == "" {
+		return corsJSON(http.StatusBadRequest, map[string]string{"error": "invalid game"}), nil
+	}
 	rec := ScoreRecord{
+		Game:      game,
 		UserSub:   p.Sub,
 		Email:     p.Email,
 		Score:     body.Score,
@@ -114,10 +127,11 @@ func (h *Handler) postScore(ctx context.Context, req events.APIGatewayV2HTTPRequ
 		return corsJSON(http.StatusInternalServerError, map[string]string{"error": err.Error()}), nil
 	}
 	return corsJSON(http.StatusCreated, map[string]any{
-		"runId":          rec.RunID,
-		"playedAt":       rec.PlayedAt,
-		"score":          rec.Score,
-		"onLeaderboard":  onBoard,
+		"runId":         rec.RunID,
+		"playedAt":      rec.PlayedAt,
+		"score":         rec.Score,
+		"game":          rec.Game,
+		"onLeaderboard": onBoard,
 	}), nil
 }
 
@@ -127,10 +141,15 @@ func (h *Handler) getMyScores(ctx context.Context, req events.APIGatewayV2HTTPRe
 		return corsJSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"}), nil
 	}
 	cursor := ""
+	game := ""
 	if req.QueryStringParameters != nil {
 		cursor = req.QueryStringParameters["cursor"]
+		game = req.QueryStringParameters["game"]
 	}
-	items, next, err := h.store.ListUserRuns(ctx, p.Sub, 50, cursor)
+	if game != "" && NormalizeGame(game) == "" {
+		return corsJSON(http.StatusBadRequest, map[string]string{"error": "invalid game"}), nil
+	}
+	items, next, err := h.store.ListUserRuns(ctx, p.Sub, 50, cursor, game)
 	if err != nil {
 		return corsJSON(http.StatusInternalServerError, map[string]string{"error": err.Error()}), nil
 	}
@@ -169,10 +188,15 @@ func (h *Handler) getAllScores(ctx context.Context, req events.APIGatewayV2HTTPR
 }
 
 func scoreJSON(r ScoreRecord, rank int) map[string]any {
+	game := r.Game
+	if game == "" {
+		game = GameSnake
+	}
 	m := map[string]any{
 		"userSub":   r.UserSub,
 		"email":     r.Email,
 		"score":     r.Score,
+		"game":      game,
 		"playedAt":  r.PlayedAt,
 		"device":    r.Device,
 		"userAgent": r.UserAgent,

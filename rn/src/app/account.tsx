@@ -9,18 +9,27 @@ import {
   View,
 } from "react-native";
 import { useIdentityAuth } from "identity-sdk";
+import { arcade, formatArcadeScore } from "../arcadeTheme";
 import { ArcadeShell } from "../components/ArcadeShell";
 import { useTheme } from "../theme-context";
 import { fetchMyScores, type ScoreRow } from "../scores/api";
 import { arcadesAuthConfig } from "../auth/config";
 
-type SortKey = "score" | "playedAt" | "device";
+type SortKey = "score" | "playedAt" | "device" | "game";
+
+function gameLabel(game?: string): string {
+  if (game === "pacman") return "PAC-MAN";
+  return "SNAKE";
+}
 
 function formatWhen(iso: string): string {
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString();
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
   } catch {
     return iso;
   }
@@ -28,8 +37,8 @@ function formatWhen(iso: string): string {
 
 export default function AccountScreen() {
   const authConfig = arcadesAuthConfig();
-  const { colors, typography } = useTheme();
-  const fontFamily = typography.fontFamily;
+  const { typography } = useTheme();
+  const pixel = typography.pixelFamily;
   const router = useRouter();
   const auth = useIdentityAuth();
   const [rows, setRows] = useState<ScoreRow[]>([]);
@@ -68,6 +77,8 @@ export default function AccountScreen() {
       if (sortKey === "score") cmp = a.score - b.score;
       else if (sortKey === "device")
         cmp = (a.device ?? "").localeCompare(b.device ?? "");
+      else if (sortKey === "game")
+        cmp = gameLabel(a.game).localeCompare(gameLabel(b.game));
       else cmp = a.playedAt.localeCompare(b.playedAt);
       return sortAsc ? cmp : -cmp;
     });
@@ -77,9 +88,11 @@ export default function AccountScreen() {
   if (!authConfig) {
     return (
       <ArcadeShell>
-        <Text style={{ fontFamily, color: colors.muted, padding: 24 }}>
-          Sign-in is not configured.
-        </Text>
+        <View style={styles.stage}>
+          <Text style={[styles.empty, { fontFamily: pixel }]}>
+            SIGN-IN NOT CONFIGURED
+          </Text>
+        </View>
       </ArcadeShell>
     );
   }
@@ -101,139 +114,210 @@ export default function AccountScreen() {
     >
       <Text
         style={{
-          fontFamily,
-          fontSize: 12,
-          fontWeight: "700",
-          color: sortKey === key ? colors.text : colors.muted,
+          fontFamily: pixel,
+          fontSize: 8,
+          letterSpacing: 0.5,
+          color: sortKey === key ? arcade.brand : arcade.muted,
         }}
       >
         {label}
-        {sortKey === key ? (sortAsc ? " ↑" : " ↓") : ""}
+        {sortKey === key ? (sortAsc ? " ^" : " v") : ""}
       </Text>
     </Pressable>
   );
 
   return (
     <ArcadeShell>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.titleRow}>
-          <Text
-            style={{
-              fontFamily,
-              fontSize: 22,
-              fontWeight: "600",
-              color: colors.text,
-            }}
-          >
-            Account
-          </Text>
-          <Pressable onPress={() => router.replace("/")}>
-            <Text style={{ fontFamily, color: colors.accent, fontWeight: "600" }}>
-              Back to Arcades
+      <ScrollView
+        style={styles.stage}
+        contentContainerStyle={styles.inner}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.title, { fontFamily: pixel }]}>ACCOUNT</Text>
+
+        <View style={styles.hud}>
+          <View style={styles.hudLeft}>
+            <Text style={[styles.hudLabel, { fontFamily: pixel }]}>RUNS</Text>
+            <Text style={[styles.hudValue, { fontFamily: pixel }]}>
+              {formatArcadeScore(rows.length)}
             </Text>
-          </Pressable>
+          </View>
+          <View style={styles.hudCenter}>
+            <Text style={[styles.hudLabel, { fontFamily: pixel }]}>
+              YOUR SCORES
+            </Text>
+            <Text style={[styles.hudValue, { fontFamily: pixel }]}>
+              {formatArcadeScore(
+                rows.reduce((m, r) => Math.max(m, r.score), 0),
+              )}
+            </Text>
+          </View>
         </View>
-        <Text
-          style={{
-            fontFamily,
-            fontSize: 14,
-            color: colors.muted,
-            marginBottom: 16,
-          }}
-        >
-          Your past scores
-        </Text>
 
         {loading ? (
-          <ActivityIndicator color={colors.accent} />
+          <ActivityIndicator color={arcade.brand} />
         ) : error ? (
-          <Text style={{ fontFamily, color: colors.muted }}>{error}</Text>
+          <Text style={[styles.empty, { fontFamily: pixel }]}>{error}</Text>
         ) : sorted.length === 0 ? (
-          <Text style={{ fontFamily, color: colors.muted }}>
-            No scores yet. Play a game while signed in.
+          <Text style={[styles.empty, { fontFamily: pixel }]}>
+            NO SCORES YET
           </Text>
         ) : (
-          <View
-            style={[
-              styles.table,
-              { borderColor: colors.border, backgroundColor: colors.board },
-            ]}
-          >
-            <View style={[styles.row, styles.head]}>
-              {header("score", "Score", 1)}
-              {header("playedAt", "Date & time", 2)}
-              {header("device", "Device", 1.5)}
+          <View style={styles.table}>
+            <View style={styles.head}>
+              {header("game", "GAME", 1.2)}
+              {header("score", "SCORE", 1)}
+              {header("playedAt", "DATE", 1.2)}
+              {header("device", "DEVICE", 1.2)}
             </View>
             {sorted.map((r, i) => (
               <View
                 key={r.runId ?? `${r.playedAt}-${i}`}
-                style={[
-                  styles.row,
-                  {
-                    borderTopColor: colors.border,
-                    borderTopWidth: StyleSheet.hairlineWidth,
-                  },
-                ]}
+                style={styles.row}
               >
                 <Text
-                  style={{
-                    fontFamily,
-                    flex: 1,
-                    fontWeight: "600",
-                    color: colors.text,
-                  }}
+                  style={[styles.cell, { fontFamily: pixel, flex: 1.2 }]}
+                  numberOfLines={1}
                 >
-                  {r.score}
+                  {gameLabel(r.game)}
                 </Text>
                 <Text
-                  style={{
-                    fontFamily,
-                    flex: 2,
-                    fontSize: 12,
-                    color: colors.muted,
-                  }}
+                  style={[
+                    styles.cell,
+                    { fontFamily: pixel, flex: 1, color: arcade.gold },
+                  ]}
+                >
+                  {formatArcadeScore(r.score)}
+                </Text>
+                <Text
+                  style={[
+                    styles.cell,
+                    { fontFamily: pixel, flex: 1.2, color: arcade.muted },
+                  ]}
+                  numberOfLines={1}
                 >
                   {formatWhen(r.playedAt)}
                 </Text>
                 <Text
-                  style={{
-                    fontFamily,
-                    flex: 1.5,
-                    fontSize: 12,
-                    color: colors.muted,
-                  }}
-                  numberOfLines={2}
+                  style={[
+                    styles.cell,
+                    { fontFamily: pixel, flex: 1.2, color: arcade.dim },
+                  ]}
+                  numberOfLines={1}
                 >
-                  {r.device || "—"}
+                  {(r.device || "—").toUpperCase().slice(0, 10)}
                 </Text>
               </View>
             ))}
           </View>
         )}
+
+        <Pressable
+          onPress={() => router.replace("/")}
+          style={({ pressed, hovered }) => [
+            styles.backBtn,
+            (pressed || hovered) && styles.backBtnHot,
+          ]}
+        >
+          <Text style={[styles.backLabel, { fontFamily: pixel }]}>
+            BACK TO ARCADES
+          </Text>
+        </Pressable>
       </ScrollView>
     </ArcadeShell>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 24, paddingBottom: 48, gap: 4 },
-  titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  stage: {
+    flex: 1,
+    backgroundColor: arcade.bg,
+  },
+  inner: {
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
     alignItems: "center",
-    marginBottom: 4,
+  },
+  title: {
+    color: arcade.brand,
+    fontSize: 18,
+    letterSpacing: 1,
+    marginBottom: 20,
+    textShadowColor: arcade.glowBrand,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  hud: {
+    width: "100%",
+    flexDirection: "row",
+    marginBottom: 24,
+    minHeight: 44,
+    position: "relative",
+  },
+  hudLeft: { alignItems: "flex-start", zIndex: 1 },
+  hudCenter: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  hudLabel: {
+    color: arcade.text,
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  hudValue: {
+    color: arcade.text,
+    fontSize: 13,
+    marginTop: 6,
   },
   table: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    overflow: "hidden",
+    width: "100%",
+    gap: 8,
+    marginBottom: 28,
   },
-  head: { paddingVertical: 10 },
+  head: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 6,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: arcade.border,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 12,
+    minHeight: 26,
+  },
+  cell: {
+    color: arcade.text,
+    fontSize: 8,
+  },
+  empty: {
+    color: arcade.muted,
+    fontSize: 10,
+    textAlign: "center",
+    marginVertical: 24,
+  },
+  backBtn: {
     paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderWidth: 2,
+    borderColor: arcade.brand,
+    borderRadius: 8,
+    backgroundColor: arcade.accentSoft,
+  },
+  backBtnHot: {
+    backgroundColor: arcade.accentSoftHot,
+  },
+  backLabel: {
+    color: arcade.brand,
+    fontSize: 10,
+    letterSpacing: 1,
   },
 });

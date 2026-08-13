@@ -10,6 +10,14 @@ function pkceKey(prefix: string): string {
   return `${prefix}.oauth.pkce`;
 }
 
+function ssoAttemptedKey(prefix: string): string {
+  return `${prefix}.sso.attempted`;
+}
+
+function ssoSkipKey(prefix: string): string {
+  return `${prefix}.sso.skip`;
+}
+
 export function defaultRedirectUri(): string {
   if (typeof window !== "undefined") {
     return `${window.location.origin}/`;
@@ -37,6 +45,41 @@ export function takePendingOAuth(prefix: string): PendingOAuth | null {
   } catch {
     return null;
   }
+}
+
+/** Soft Cognito errors from prompt=none when there is no Hosted UI session. */
+export function isSilentSsoSoftError(error: string | null): boolean {
+  if (!error) return false;
+  return (
+    error === "login_required" ||
+    error === "interaction_required" ||
+    error === "consent_required" ||
+    error === "account_selection_required"
+  );
+}
+
+export function shouldAttemptSilentSso(prefix: string): boolean {
+  if (typeof sessionStorage === "undefined") return false;
+  if (sessionStorage.getItem(ssoSkipKey(prefix))) return false;
+  if (sessionStorage.getItem(ssoAttemptedKey(prefix))) return false;
+  return true;
+}
+
+export function markSilentSsoAttempted(prefix: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.setItem(ssoAttemptedKey(prefix), "1");
+}
+
+/** After local sign-out, skip silent SSO for this tab so we do not bounce back in. */
+export function markSilentSsoSkipped(prefix: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.setItem(ssoSkipKey(prefix), "1");
+  sessionStorage.setItem(ssoAttemptedKey(prefix), "1");
+}
+
+export function clearSilentSsoSkip(prefix: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.removeItem(ssoSkipKey(prefix));
 }
 
 export function readOAuthCallbackParams(): {

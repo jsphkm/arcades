@@ -19,7 +19,9 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useIdentityAuth } from "identity-sdk";
+import { arcade } from "../arcadeTheme";
 import { arcadesAuthConfig } from "../auth/config";
+import { USE_NATIVE_DRIVER } from "../platform";
 import { useTheme } from "../theme-context";
 import { GameList } from "./GameList";
 import { ProfileMenu } from "./ProfileMenu";
@@ -34,7 +36,21 @@ export const ARCADE_SIDEBAR_W = 280;
 const OPEN_MS = 240;
 const CLOSE_MS = 200;
 
-type ShellChrome = ReturnType<typeof chrome>;
+type ShellChrome = {
+  rail: string;
+  shell: string;
+  surface: string;
+  text: string;
+  muted: string;
+  activeBg: string;
+  activeHoverBg: string;
+  activeText: string;
+  hoverBg: string;
+  pressedBg: string;
+  focusRing: string;
+  brand: string;
+  scrim: string;
+};
 
 type ShellLayout = {
   sidebarW: number;
@@ -52,40 +68,21 @@ export function useArcadeShellLayout(): ShellLayout {
   return useContext(ArcadeShellLayoutContext);
 }
 
-function chrome(scheme: "light" | "dark") {
-  if (scheme === "dark") {
-    return {
-      rail: "#1f1f1f",
-      shell: "#0e0e0e",
-      surface: "#1a1a1a",
-      text: "#c4c7c5",
-      muted: "#8e918f",
-      activeBg: "rgba(232, 234, 237, 0.12)",
-      activeHoverBg: "rgba(232, 234, 237, 0.16)",
-      activeText: "#e8eaed",
-      hoverBg: "rgba(232, 234, 237, 0.06)",
-      pressedBg: "rgba(232, 234, 237, 0.1)",
-      focusRing: "rgba(232, 234, 237, 0.35)",
-      brand: "#e8eaed",
-      scrim: "rgba(0, 0, 0, 0.45)",
-    };
-  }
-  return {
-    rail: "#f8fafd",
-    shell: "#e9eef6",
-    surface: "#ffffff",
-    text: "#444746",
-    muted: "#5f6368",
-    activeBg: "rgba(31, 31, 31, 0.08)",
-    activeHoverBg: "rgba(31, 31, 31, 0.12)",
-    activeText: "#1f1f1f",
-    hoverBg: "rgba(31, 31, 31, 0.05)",
-    pressedBg: "rgba(31, 31, 31, 0.08)",
-    focusRing: "rgba(31, 31, 31, 0.28)",
-    brand: "#1f1f1f",
-    scrim: "rgba(0, 0, 0, 0.32)",
-  };
-}
+const SHELL: ShellChrome = {
+  rail: arcade.rail,
+  shell: arcade.bg,
+  surface: arcade.bg,
+  text: arcade.text,
+  muted: arcade.muted,
+  activeBg: arcade.accentSoft,
+  activeHoverBg: arcade.accentSoftHot,
+  activeText: arcade.brand,
+  hoverBg: arcade.hover,
+  pressedBg: arcade.pressed,
+  focusRing: "rgba(232,234,237,0.35)",
+  brand: arcade.brand,
+  scrim: arcade.scrim,
+};
 
 function MenuGlyph({ color }: { color: string }) {
   return (
@@ -107,19 +104,24 @@ function SignInButton({ onPress }: { onPress: () => void }) {
       style={({ pressed, hovered }) => [
         styles.signInBtn,
         {
-          backgroundColor: pressed ? "#2145e6" : hovered ? "#2f4de8" : "#3858e9",
+          backgroundColor: pressed
+            ? arcade.accentSoftHot
+            : hovered
+              ? arcade.accentSoft
+              : "transparent",
+          borderColor: arcade.brand,
         },
       ]}
     >
       <Text
         style={{
-          fontFamily: typography.fontFamily,
-          fontSize: 14,
-          fontWeight: "600",
-          color: "#ffffff",
+          fontFamily: typography.pixelFamily,
+          fontSize: 9,
+          letterSpacing: 1,
+          color: arcade.brand,
         }}
       >
-        Sign In
+        SIGN IN
       </Text>
     </Pressable>
   );
@@ -173,14 +175,13 @@ function DrawerNav({
           <Text
             style={{
               fontFamily,
-              fontSize: 22,
-              fontWeight: "500",
+              fontSize: 14,
               color: c.brand,
-              letterSpacing: -0.2,
+              letterSpacing: 1,
             }}
             numberOfLines={1}
           >
-            Arcades
+            ARCADES
           </Text>
         </Pressable>
       </Link>
@@ -199,11 +200,12 @@ function DrawerNav({
 
 export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
   const { scheme, typography } = useTheme();
-  const c = chrome(scheme);
+  const c = SHELL;
   const authEnabled = arcadesAuthConfig() !== null;
-  const fontFamily = typography.fontFamily;
+  const fontFamily = typography.pixelFamily;
   const { width } = useWindowDimensions();
   const drawerW = Math.min(ARCADE_SIDEBAR_W, Math.max(240, width * 0.85));
+  const compact = width < 640;
 
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -236,13 +238,13 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
         toValue: -drawerWRef.current,
         duration: CLOSE_MS,
         easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(scrimOpacity, {
         toValue: 0,
         duration: CLOSE_MS,
         easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start(({ finished }) => {
       if (finished) setMounted(false);
@@ -258,13 +260,13 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
         toValue: 0,
         duration: OPEN_MS,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(scrimOpacity, {
         toValue: 1,
         duration: OPEN_MS,
         easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start();
   }, [open, mounted, translateX, scrimOpacity]);
@@ -272,8 +274,16 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
   return (
     <ArcadeShellLayoutContext.Provider value={layout}>
       <View style={[styles.root, { backgroundColor: c.shell }]}>
-        <View style={styles.mainWrap}>
-          <View style={[styles.mainCard, { backgroundColor: c.surface }]}>
+        <View
+          style={[styles.mainWrap, compact && styles.mainWrapCompact]}
+        >
+          <View
+            style={[
+              styles.mainCard,
+              { backgroundColor: c.surface },
+              compact && styles.mainCardCompact,
+            ]}
+          >
             <View style={styles.mainToolbar}>
               <Pressable
                 accessibilityRole="button"
@@ -298,14 +308,13 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
                   <Text
                     style={{
                       fontFamily,
-                      fontSize: 18,
-                      fontWeight: "600",
+                      fontSize: 12,
                       color: c.brand,
-                      letterSpacing: -0.2,
+                      letterSpacing: 1,
                     }}
                     numberOfLines={1}
                   >
-                    Arcades
+                    ARCADES
                   </Text>
                 </Pressable>
               </Link>
@@ -324,12 +333,12 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
                       <Text
                         style={{
                           fontFamily,
-                          fontSize: 14,
-                          fontWeight: "600",
+                          fontSize: 9,
+                          letterSpacing: 1,
                           color: c.text,
                         }}
                       >
-                        High scores
+                        HIGH SCORES
                       </Text>
                     </Pressable>
                   </Link>
@@ -343,8 +352,7 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
 
         {mounted ? (
           <View
-            style={styles.overlayRoot}
-            pointerEvents="box-none"
+            style={[styles.overlayRoot, { pointerEvents: "box-none" }]}
             accessibilityViewIsModal
           >
             <Animated.View
@@ -394,10 +402,16 @@ const styles = StyleSheet.create({
     padding: 8,
     minWidth: 0,
   },
+  mainWrapCompact: {
+    padding: 0,
+  },
   mainCard: {
     flex: 1,
     borderRadius: 16,
     overflow: "hidden",
+  },
+  mainCardCompact: {
+    borderRadius: 0,
   },
   mainToolbar: {
     flexDirection: "row",
@@ -441,19 +455,20 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   signInBtn: {
-    minHeight: 36,
-    paddingHorizontal: 18,
-    borderRadius: 100,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   overlayRoot: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1000,
     elevation: 1000,
   },
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   drawer: {
     position: "absolute",
@@ -467,6 +482,7 @@ const styles = StyleSheet.create({
   },
   brandHeader: {
     minHeight: 40,
+    paddingVertical: 6,
     paddingHorizontal: 4,
     justifyContent: "center",
   },
