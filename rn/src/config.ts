@@ -1,13 +1,14 @@
-const DEFAULT_ACCOUNT_URL = "https://d1a0llqq3cbyju.cloudfront.net";
+function clean(v: string | undefined): string {
+  return (v?.trim() ?? "").replace(/\/$/, "");
+}
 
 export const config = {
   scoresApiUrl(): string {
-    const v = process.env.EXPO_PUBLIC_SCORES_API_URL?.trim() ?? "";
-    return v.replace(/\/$/, "");
+    // Expo inlines only static process.env.EXPO_PUBLIC_* member access.
+    return clean(process.env.EXPO_PUBLIC_SCORES_API_URL);
   },
-  /** External identity / account portal. */
+  /** External identity / account portal (from env / deploy SSM only). */
   accountUrl(): string {
-    const v = process.env.EXPO_PUBLIC_ACCOUNT_URL?.trim() ?? DEFAULT_ACCOUNT_URL;
-    return v.replace(/\/$/, "") || DEFAULT_ACCOUNT_URL;
+    return clean(process.env.EXPO_PUBLIC_ACCOUNT_URL);
   },
 };

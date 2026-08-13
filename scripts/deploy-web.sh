@@ -53,6 +53,7 @@ BUCKET="$(ssm_get "/arcades/$STAGE/web-bucket" || ssm_get "/snake/$STAGE/web-buc
 DIST_ID="$(ssm_get "/arcades/$STAGE/cf-distribution-id" || ssm_get "/snake/$STAGE/cf-distribution-id" || true)"
 SCORES_URL="$(ssm_get "/arcades/$STAGE/scores-api-url" || ssm_get "/snake/$STAGE/scores-api-url" || true)"
 CLIENT_ID="$(ssm_get "/arcades/$STAGE/cognito-client-id" || ssm_get "/snake/$STAGE/cognito-client-id" || true)"
+ACCOUNT_URL="$(ssm_get "/account/$STAGE/web-url" || ssm_get /account/web-url || true)"
 
 if [[ -z "$BUCKET" || -z "$DIST_ID" || -z "$SCORES_URL" ]]; then
   echo "missing SSM deploy targets for stage '$STAGE'." >&2
@@ -69,9 +70,13 @@ export EXPO_PUBLIC_SCORES_API_URL="$SCORES_URL"
 if [[ -n "$CLIENT_ID" ]]; then
   export EXPO_PUBLIC_IDENTITY_CLIENT_ID="$CLIENT_ID"
 fi
+if [[ -n "$ACCOUNT_URL" ]]; then
+  export EXPO_PUBLIC_ACCOUNT_URL="$ACCOUNT_URL"
+fi
 
 echo "deploy stage: $STAGE → s3://$ARCADES_WEB_BUCKET (cf $ARCADES_CF_DISTRIBUTION_ID)"
 echo "scores API: $EXPO_PUBLIC_SCORES_API_URL"
+echo "account URL: ${EXPO_PUBLIC_ACCOUNT_URL:-unset}"
 
 if [[ -z "${EXPO_PUBLIC_IDENTITY_CLIENT_ID:-}" || -z "${EXPO_PUBLIC_IDENTITY_COGNITO_DOMAIN:-}" ]]; then
   echo "warning: EXPO_PUBLIC_IDENTITY_CLIENT_ID / EXPO_PUBLIC_IDENTITY_COGNITO_DOMAIN unset — Sign In will be disabled in this build" >&2
@@ -89,6 +94,15 @@ if ! rg -q -F "$expected" dist -g '*.js'; then
   exit 1
 fi
 echo "verified scores API URL in bundle: $expected"
+
+if [[ -n "${EXPO_PUBLIC_ACCOUNT_URL:-}" ]]; then
+  account_expected="$(echo "$EXPO_PUBLIC_ACCOUNT_URL" | sed 's:/*$::')"
+  if ! rg -q -F "$account_expected" dist -g '*.js'; then
+    echo "export missing expected account URL: $account_expected" >&2
+    exit 1
+  fi
+  echo "verified account URL in bundle: $account_expected"
+fi
 
 cd "$ROOT/cmd/deploy-web"
 export ARCADES_WEB_DIST="${ARCADES_WEB_DIST:-$ROOT/rn/dist}"
