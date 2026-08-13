@@ -12,10 +12,6 @@ type Props = {
   text: string;
 };
 
-/**
- * Web: real <ul><li><a> with CSS hover / :focus-visible / selected.
- * Native: Pressable fallback with the same roles.
- */
 export function GameList({
   fontFamily,
   onNavigate,

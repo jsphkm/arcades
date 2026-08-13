@@ -6,7 +6,6 @@ export type ArcadeGame = {
   href: Href;
 };
 
-/** Games available in the Arcades lobby. Append here as new games ship. */
 export const ARCADE_GAMES: ArcadeGame[] = [
   {
     id: "snake",

@@ -22,7 +22,7 @@ type Principal struct {
 	Sub     string
 	Email   string
 	IsAdmin bool
-	IsUser  bool // Arcades app-client user
+	IsUser  bool
 }
 
 type Auth struct {
