@@ -111,12 +111,31 @@ export function useSnakeGame(opts?: {
   useEffect(() => {
     if (status !== "playing") return;
 
-    const id = setInterval(() => {
-      drawGame();
-      syncFromWorld();
-    }, TICK_MS);
-
-    return () => clearInterval(id);
+    // rAF + accumulator: at most one step per frame so a tab/timer backlog
+    // cannot slam the snake into a wall on the first keypress.
+    let raf = 0;
+    const nowMs = () =>
+      typeof performance !== "undefined" &&
+      typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+    let last = nowMs();
+    let acc = 0;
+    const loop = (now: number) => {
+      const dt = Math.min(TICK_MS, now - last);
+      last = now;
+      acc += dt;
+      if (acc >= TICK_MS) {
+        acc -= TICK_MS;
+        drawGame();
+        syncFromWorld();
+      }
+      if (getWorld().state === "playing") {
+        raf = requestAnimationFrame(loop);
+      }
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
   }, [status, syncFromWorld]);
 
   useEffect(() => {
