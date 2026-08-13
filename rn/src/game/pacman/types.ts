@@ -1,6 +1,13 @@
 export type Dir = { x: number; y: number };
 
-export type GamePhase = "menu" | "playing" | "paused" | "dead" | "won";
+export type GamePhase = 
+    | "menu"
+    | "ready",
+    | "playing"
+    | "paused"
+    | "dying"
+    | "dead"
+    | "won";
 
 export type GhostMode =
   | "scatter"
