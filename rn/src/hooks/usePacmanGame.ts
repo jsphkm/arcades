@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "expo-router";
 import { Platform } from "react-native";
 import {
   getPacmanSnapshot,
@@ -44,6 +45,10 @@ function writeStoredHighScore(value: number) {
 export function usePacmanGame(opts?: {
   onGameOver?: (finalScore: number) => void;
 }) {
+  const pathname = usePathname();
+  const screenActive = pathname === "/games/pacman";
+  const screenActiveRef = useRef(screenActive);
+  screenActiveRef.current = screenActive;
   const [snap, setSnap] = useState<PacmanSnapshot>(() => getPacmanSnapshot());
   const [activeDir, setActiveDir] = useState<Dir | null>(null);
   const phaseRef = useRef<GamePhase>(snap.phase);
@@ -82,27 +87,36 @@ export function usePacmanGame(opts?: {
     }
   }, [sync]);
 
-  // rAF sim; speeds/mouth
+  // One rAF for the screen lifetime. Restarting on phase change leaks a loop
+  // (cleanup cancels the fired frame; that frame still schedules the next).
   useEffect(() => {
-    if (
-            snap.phase !== "playing" &&
-            snap.phase !== "ready" &&
-            snap.phase !== "dying"
-        ) return;
     if (typeof requestAnimationFrame === "undefined") return;
+    let alive = true;
     let raf = 0;
     let last =
       typeof performance !== "undefined" ? performance.now() : Date.now();
     const frame = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      tickPacman(dt);
-      sync();
+      if (!alive) return;
+      const phase = phaseRef.current;
+      if (
+        screenActiveRef.current &&
+        (phase === "playing" || phase === "ready" || phase === "dying")
+      ) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        tickPacman(dt);
+        sync();
+      } else {
+        last = now;
+      }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, [snap.phase, sync]);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+    };
+  }, [sync]);
 
   const startGame = useCallback(() => {
     startPacman();
@@ -127,6 +141,7 @@ export function usePacmanGame(opts?: {
   }, [sync]);
 
   useEffect(() => {
+    if (!screenActive) return;
     if (Platform.OS !== "web" || typeof window === "undefined") return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -159,7 +174,7 @@ export function usePacmanGame(opts?: {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [sync]);
+  }, [screenActive, sync]);
 
   return {
     ...snap,
