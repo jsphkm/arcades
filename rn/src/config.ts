@@ -1,13 +1,14 @@
-function trimEnv(name: string): string {
-  return (process.env[name]?.trim() ?? "").replace(/\/$/, "");
+function clean(v: string | undefined): string {
+  return (v?.trim() ?? "").replace(/\/$/, "");
 }
 
 export const config = {
   scoresApiUrl(): string {
-    return trimEnv("EXPO_PUBLIC_SCORES_API_URL");
+    // Expo inlines only static process.env.EXPO_PUBLIC_* member access.
+    return clean(process.env.EXPO_PUBLIC_SCORES_API_URL);
   },
   /** External identity / account portal (from env / deploy SSM only). */
   accountUrl(): string {
-    return trimEnv("EXPO_PUBLIC_ACCOUNT_URL");
+    return clean(process.env.EXPO_PUBLIC_ACCOUNT_URL);
   },
 };
