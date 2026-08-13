@@ -24,7 +24,8 @@ import {
 
 const TILE_PX = 16;
 const pxSpeed = (pxPerSec: number) => pxPerSec / TILE_PX;
-
+const READY_SEC = 5;
+const DYING_SEC = 2.5; // ~150 frames @ 60fps
 const SPEED_PAC = pxSpeed(120); // 7.5
 const SPEED_GHOST = pxSpeed(80); // 5
 const SPEED_PAC_FRIGHT = SPEED_PAC;
@@ -85,6 +86,9 @@ type Engine = {
   /** After eating a ghost, freeze everyone except eyes */
   freezeLeft: number;
   eatPopup: EatPopup | null;
+    readyLeft: number;
+    dyingLeft: number;
+    deathT: number;
 };
 
 let eng: Engine | null = null;
@@ -184,15 +188,25 @@ function baseEngine(highScore: number): Engine {
     eatPauseLeft: 0,
     freezeLeft: 0,
     eatPopup: null,
+        readyLeft: 0,
+        dyingLeft: 0,
+        deathT: 0,
   };
 }
 
 export function startPacman() {
   const high = eng?.highScore ?? 0;
   eng = baseEngine(high);
-  eng.phase = "playing";
   eng.lives = 4;
   resetPositions(eng, false);
+    beginReady(eng);
+}
+
+function beginReady(e: Engine) {
+    e.phase = "ready";
+    e.readyLeft = READY_SEC;
+    e.dyingLeft = 0;
+    e.deathT = 0;
 }
 
 export function setHighScore(value: number) {
@@ -206,7 +220,8 @@ export function setHighScore(value: number) {
 }
 
 export function queueDir(dir: Dir) {
-  if (!eng || eng.phase !== "playing") return;
+  if (!eng || (eng.phase !== "playing" &&
+        eng.phase !== "ready")) return;
   eng.queued = dir;
 }
 
@@ -678,8 +693,11 @@ function collide(e: Engine) {
       g.mode !== "leaving"
     ) {
       e.lives -= 1;
-      if (e.lives <= 0) e.phase = "dead";
-      else resetPositions(e, true);
+        e.phase = "dying";
+            e.dyingLeft = DYING_SEC;
+            e.deathT = 0;
+            e.eatPopup = null;
+            e.freezeLeft = 0;
       return;
     }
   }
@@ -704,7 +722,7 @@ function maybeSpawnFruit(e: Engine) {
 function advanceStage(e: Engine) {
   e.stage += 1;
   resetPositions(e, false);
-  e.phase = "playing";
+    beginReady(e);
 }
 
 function frightFlash(e: Engine): boolean {
@@ -721,12 +739,33 @@ function frightFlash(e: Engine): boolean {
 /** Continuous sim step — call from rAF with dt seconds. */
 export function tickPacman(dt = 1 / 60): GamePhase {
   if (!eng) return "menu";
-  if (eng.phase !== "playing") return eng.phase;
+  if (
+        eng.phase !== "playing" &&
+        eng.phase !== "ready" &&
+        eng.phase !== "dying"
+    ) return eng.phase;
 
   const e = eng;
   const t = Math.min(0.05, Math.max(0, dt));
   e.time += t;
 
+    if (e.phase === "ready") {
+        e.readyLeft -= t;
+        if (e.readyLeft <= 0) e.phase = "playing";
+        return e.phase;
+    }
+    if (e.phase === "dying") {
+        e.dyingLeft -= t;
+        e.deathT = 1 - Math.max(0, e.dyingLeft) / DYING_SEC;
+        if (e.dyingLeft <= 0) {
+            if (e.lives <= 0) e.phase = "dead";
+            else {
+                    resetPositions(e, true);
+                    beginReady(e);
+            }
+        }
+        return e.phase;
+    }
   if (e.eatPopup) {
     e.eatPopup.left -= t;
     if (e.eatPopup.left <= 0) e.eatPopup = null;
@@ -804,6 +843,7 @@ export function isFrightFlash(): boolean {
 export function getPacmanSnapshot(): PacmanSnapshot {
   if (!eng) {
     return {
+            deathT: 0,
       phase: "menu",
       score: 0,
       highScore: 0,
@@ -823,6 +863,7 @@ export function getPacmanSnapshot(): PacmanSnapshot {
     };
   }
   return {
+        deathT: eng?.deathT ?? 0,
     phase: eng.phase,
     score: eng.score,
     highScore: eng.highScore,
