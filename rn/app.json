@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "rn",
-    "slug": "rn",
+    "name": "Arcades",
+    "slug": "arcades",
     "orientation": "portrait",
-    "scheme": "rn",
+    "scheme": "arcades",
     "userInterfaceStyle": "automatic",
     "ios": {},
     "android": {
@@ -14,7 +14,7 @@
     },
     "plugins": [
       "expo-router",
-      "expo-image",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

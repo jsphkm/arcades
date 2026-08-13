@@ -1,14 +1,14 @@
 {
-  "name": "snake-js",
+  "name": "arcades",
   "private": true,
   "workspaces": [
     "rn"
   ],
   "scripts": {
     "export:web": "npm run export:web -w rn",
-    "deploy:web": "scripts/deploy-web.sh",
+    "deploy:web:prod": "scripts/deploy-web.sh prod",
     "deploy:web:staging": "scripts/deploy-web.sh staging",
-    "deploy:web:production": "scripts/deploy-web.sh production",
+    "pull:web-env": "scripts/pull-web-env.sh",
     "sync:identity-sdk": "scripts/sync-identity-sdk.sh"
   }
 }
