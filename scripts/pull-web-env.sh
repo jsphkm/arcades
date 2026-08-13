@@ -25,12 +25,16 @@ write_stage() {
   dist="$(getp_arcades "$stage" cf-distribution-id)"
   domain="$(getp /account/cognito-domain 2>/dev/null || getp /identity/cognito-domain)"
 
+  local account_url
+  account_url="$(getp "/account/$stage/web-url" 2>/dev/null || getp /account/web-url || true)"
+
   cat >"$out" <<EOF
 EXPO_PUBLIC_IDENTITY_CLIENT_ID=$client
 EXPO_PUBLIC_IDENTITY_COGNITO_DOMAIN=$domain
 EXPO_PUBLIC_SCORES_API_URL=$scores
 ARCADES_WEB_BUCKET=$bucket
 ARCADES_CF_DISTRIBUTION_ID=$dist
+EXPO_PUBLIC_ACCOUNT_URL=$account_url
 EOF
   echo "Wrote $out"
 }
