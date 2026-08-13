@@ -64,11 +64,14 @@ export function usePacmanGame(opts?: {
     if (next.highScore > 0) writeStoredHighScore(next.highScore);
     if (
       (next.phase === "dead" || next.phase === "won") &&
-      prev === "playing"
+      prev !== "dead" &&
+      prev !== "won"
     ) {
       onGameOverRef.current?.(next.score);
     }
-    if (next.phase !== "playing") setActiveDir(null);
+    if (next.phase !== "playing" && next.phase !== "ready") {
+      setActiveDir(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -79,9 +82,13 @@ export function usePacmanGame(opts?: {
     }
   }, [sync]);
 
-  // rAF sim; speeds/mouth match Google Pac-Man Halloween doodle (Phaser).
+  // rAF sim; speeds/mouth
   useEffect(() => {
-    if (snap.phase !== "playing") return;
+    if (
+            snap.phase !== "playing" &&
+            snap.phase !== "ready" &&
+            snap.phase !== "dying"
+        ) return;
     if (typeof requestAnimationFrame === "undefined") return;
     let raf = 0;
     let last =
