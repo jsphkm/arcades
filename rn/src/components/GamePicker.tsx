@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import {
   Platform,
   Pressable,
@@ -14,9 +14,11 @@ import { useTheme } from "../theme-context";
 /** Home game list — keyboard arrows + click to open. */
 export function GamePicker() {
   const router = useRouter();
+  const pathname = usePathname();
   const { typography } = useTheme();
   const pixel = typography.pixelFamily;
   const [selected, setSelected] = useState(0);
+  const onLobby = pathname === "/" || pathname === "";
 
   const openGame = useCallback(
     (index: number) => {
@@ -27,6 +29,7 @@ export function GamePicker() {
   );
 
   useEffect(() => {
+    if (!onLobby) return;
     if (Platform.OS !== "web" || typeof window === "undefined") return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
@@ -54,7 +57,7 @@ export function GamePicker() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openGame, selected]);
+  }, [onLobby, openGame, selected]);
 
   return (
     <View style={styles.stage}>
