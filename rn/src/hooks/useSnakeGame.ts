@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "expo-router";
 import { Platform } from "react-native";
 import { TICK_MS } from "../game/constants";
 import {
@@ -40,6 +41,10 @@ function writeStoredHighScore(value: number) {
 export function useSnakeGame(opts?: {
   onGameOver?: (finalScore: number) => void;
 }) {
+  const pathname = usePathname();
+  const screenActive = pathname === "/games/snake";
+  const screenActiveRef = useRef(screenActive);
+  screenActiveRef.current = screenActive;
   const [status, setStatus] = useState<GameState>("menu");
   const [snake, setSnake] = useState<Snake | undefined>();
   const [food, setFood] = useState<Point | undefined>();
@@ -109,10 +114,8 @@ export function useSnakeGame(opts?: {
   }, []);
 
   useEffect(() => {
-    if (status !== "playing") return;
-
-    // rAF + accumulator: at most one step per frame so a tab/timer backlog
-    // cannot slam the snake into a wall on the first keypress.
+    if (typeof requestAnimationFrame === "undefined") return;
+    let alive = true;
     let raf = 0;
     const nowMs = () =>
       typeof performance !== "undefined" &&
@@ -122,23 +125,31 @@ export function useSnakeGame(opts?: {
     let last = nowMs();
     let acc = 0;
     const loop = (now: number) => {
-      const dt = Math.min(TICK_MS, now - last);
-      last = now;
-      acc += dt;
-      if (acc >= TICK_MS) {
-        acc -= TICK_MS;
-        drawGame();
-        syncFromWorld();
+      if (!alive) return;
+      if (screenActiveRef.current && statusRef.current === "playing") {
+        const dt = Math.min(TICK_MS, now - last);
+        last = now;
+        acc += dt;
+        if (acc >= TICK_MS) {
+          acc -= TICK_MS;
+          drawGame();
+          syncFromWorld();
+        }
+      } else {
+        last = now;
+        acc = 0;
       }
-      if (getWorld().state === "playing") {
-        raf = requestAnimationFrame(loop);
-      }
+      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [status, syncFromWorld]);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+    };
+  }, [syncFromWorld]);
 
   useEffect(() => {
+    if (!screenActive) return;
     if (Platform.OS !== "web") return;
 
     const keyPressed = (e: KeyboardEvent) => {
@@ -185,7 +196,7 @@ export function useSnakeGame(opts?: {
       window.removeEventListener("keydown", keyPressed);
       window.removeEventListener("keyup", keyReleased);
     };
-  }, [start, setDirection, clearActiveDir]);
+  }, [screenActive, start, setDirection, clearActiveDir]);
 
   return {
     state: status,
