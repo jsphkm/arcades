@@ -1,4 +1,4 @@
-const DEFAULT_ACCOUNT_URL = "https://d1a0llqq3cbyju.cloudfront.net";
+const DEFAULT_ACCOUNT_URL = "https://d2i12qgbep9zvo.cloudfront.net";
 
 export const config = {
   scoresApiUrl(): string {
