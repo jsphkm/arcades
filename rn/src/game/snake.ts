@@ -52,8 +52,13 @@ export class Snake {
     if (x > COLS - 1 || x < 0 || y > ROWS - 1 || y < 0) {
       return true;
     }
-    // Skip tail (index 0) — it vacates on this step
-    for (let i = 1; i < this.body.length; i += 1) {
+    // Length 1 has no body to hit; the single cell vacates as the head moves.
+    if (this.body.length <= 1) {
+      return false;
+    }
+    // Skip tail (index 0) — it vacates on this step. Also skip the current head
+    // (last index); that cell is vacated by the move. Only mid-body is solid.
+    for (let i = 1; i < this.body.length - 1; i += 1) {
       const part = this.body[i];
       if (part.x === x && part.y === y) {
         return true;
