@@ -1,0 +1,117 @@
+# Deploy Expo web to S3 + CloudFront.
+# main → GitHub environment "production" (prod AWS)
+# staging → GitHub environment "staging" (staging AWS)
+#
+# Set these variables on each GitHub environment:
+#   AWS_DEPLOY_ROLE_ARN
+#   AWS_REGION                          (optional, default us-east-1)
+#   ARCADES_WEB_BUCKET
+#   ARCADES_CF_DISTRIBUTION_ID
+#   EXPO_PUBLIC_IDENTITY_CLIENT_ID
+#   EXPO_PUBLIC_IDENTITY_COGNITO_DOMAIN
+#   EXPO_PUBLIC_SCORES_API_URL
+#   EXPO_PUBLIC_ACCOUNT_URL             (optional)
+name: Deploy web
+
+on:
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-web-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.ref_name == 'main' || github.ref_name == 'staging'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    env:
+      ARCADES_WEB_BUCKET: ${{ vars.ARCADES_WEB_BUCKET }}
+      ARCADES_CF_DISTRIBUTION_ID: ${{ vars.ARCADES_CF_DISTRIBUTION_ID }}
+      ARCADES_WEB_DIST: ${{ github.workspace }}/rn/dist
+      EXPO_PUBLIC_IDENTITY_CLIENT_ID: ${{ vars.EXPO_PUBLIC_IDENTITY_CLIENT_ID }}
+      EXPO_PUBLIC_IDENTITY_COGNITO_DOMAIN: ${{ vars.EXPO_PUBLIC_IDENTITY_COGNITO_DOMAIN }}
+      EXPO_PUBLIC_SCORES_API_URL: ${{ vars.EXPO_PUBLIC_SCORES_API_URL }}
+      EXPO_PUBLIC_ACCOUNT_URL: ${{ vars.EXPO_PUBLIC_ACCOUNT_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Check environment variables
+        run: |
+          missing=0
+          for name in \
+            AWS_DEPLOY_ROLE_ARN \
+            ARCADES_WEB_BUCKET \
+            ARCADES_CF_DISTRIBUTION_ID \
+            EXPO_PUBLIC_SCORES_API_URL \
+            EXPO_PUBLIC_IDENTITY_CLIENT_ID \
+            EXPO_PUBLIC_IDENTITY_COGNITO_DOMAIN
+          do
+            if [[ -z "${!name}" ]]; then
+              echo "missing GitHub environment variable: $name" >&2
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            echo "set the variables on the '${{ github.ref_name == 'main' && 'production' || 'staging' }}' environment" >&2
+            exit 1
+          fi
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.5"
+          cache-dependency-path: cmd/deploy-web/go.sum
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Export Expo web
+        working-directory: rn
+        run: npx expo export -p web --clear
+
+      - name: Verify public URLs in bundle
+        working-directory: rn
+        run: |
+          scores="$(echo "$EXPO_PUBLIC_SCORES_API_URL" | sed 's:/*$::')"
+          if ! grep -R -F -q --include='*.js' -- "$scores" dist; then
+            echo "export missing expected scores API URL: $scores" >&2
+            exit 1
+          fi
+          echo "verified scores API URL in bundle: $scores"
+          if [[ -n "${EXPO_PUBLIC_ACCOUNT_URL:-}" ]]; then
+            account="$(echo "$EXPO_PUBLIC_ACCOUNT_URL" | sed 's:/*$::')"
+            if ! grep -R -F -q --include='*.js' -- "$account" dist; then
+              echo "export missing expected account URL: $account" >&2
+              exit 1
+            fi
+            echo "verified account URL in bundle: $account"
+          fi
+
+      - name: Deploy to S3 + CloudFront
+        working-directory: cmd/deploy-web
+        env:
+          GOTOOLCHAIN: local
+        run: go run .
