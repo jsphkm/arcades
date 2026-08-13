@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { View, StyleSheet, useWindowDimensions } from "react-native";
 import { useIdentityAuth } from "identity-sdk";
+import { arcade } from "../../../arcadeTheme";
 import { useTheme } from "../../../theme-context";
 import { useSnakeGame } from "../../../hooks/useSnakeGame";
 import { Menu } from "../../../components/Menu";
@@ -25,7 +26,7 @@ function GameScreenBody({
 }: {
   onGameOver?: (finalScore: number) => void;
 }) {
-  const { colors, space } = useTheme();
+  const { space } = useTheme();
   const { width, height } = useWindowDimensions();
   const { sidebarW } = useArcadeShellLayout();
   const isLandscape = width > height;
@@ -86,7 +87,7 @@ function GameScreenBody({
         {
           width: boardSize,
           height: boardSize,
-          backgroundColor: colors.board,
+          backgroundColor: arcade.surface,
           overflow: "hidden",
         },
       ]}
@@ -110,7 +111,7 @@ function GameScreenBody({
   );
 
   return (
-    <View style={[styles.page, { backgroundColor: colors.page }]}>
+    <View style={[styles.page, { backgroundColor: arcade.bg }]}>
       {isLandscape ? (
         <View style={styles.landscapeWrap}>
           <View style={styles.hudRow}>{hud}</View>
@@ -133,7 +134,7 @@ function GameScreenBody({
           <View
             style={[
               styles.overlayScrim,
-              { backgroundColor: colors.page, pointerEvents: "none" },
+              { backgroundColor: arcade.bg, pointerEvents: "none" },
             ]}
           />
           <Menu onStart={startGame} label="Try Again" />
@@ -169,6 +170,7 @@ function AuthenticatedGame() {
             finalScore,
             detectDevice(),
             typeof navigator !== "undefined" ? navigator.userAgent : "",
+            "snake",
           );
         } catch {
           /* keep playing offline */
@@ -221,13 +223,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
   },
   overlayScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.45,
   },
 });

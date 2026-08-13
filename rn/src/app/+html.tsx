@@ -1,91 +1,70 @@
 import { ScrollViewStyleReset } from "expo-router/html";
-import { palette } from "../theme";
+import { arcade } from "../arcadeTheme";
 
 const css = `
     html, body, #root { height: 100%; }
     body {
       margin: 0;
-      background: ${palette.light.page};
-      /* Avoid accidental text selection while dragging the stick */
+      background: ${arcade.bg};
       user-select: none;
       -webkit-user-select: none;
+      overscroll-behavior: none;
     }
-    @media (prefers-color-scheme: dark) {
-        body { background: ${palette.dark.page}; }
+    [id^="joystick-"],
+    [data-joystick] {
+      touch-action: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
-    /* Drawer game list: ul > li > a (monotone) */
     ul.arcades-game-list {
       list-style: none;
       margin: 0;
-      padding: 24px 4px 12px;
+      padding: 16px 4px 12px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 4px;
     }
     ul.arcades-game-list > li.arcades-game-item {
       margin: 0;
-      padding: 6px 8px;
-      border-radius: 28px;
+      padding: 4px;
+      border-radius: 8px;
       transition: background-color 120ms ease;
     }
     ul.arcades-game-list > li.arcades-game-item:hover {
-      background: rgba(232, 234, 237, 0.06);
+      background: ${arcade.hover};
     }
     ul.arcades-game-list > li.arcades-game-item:focus-within {
-      background: rgba(232, 234, 237, 0.08);
-      box-shadow: inset 0 0 0 1px rgba(232, 234, 237, 0.28);
+      background: ${arcade.accentSoft};
+      box-shadow: inset 0 0 0 1px ${arcade.brand};
     }
     ul.arcades-game-list > li.arcades-game-item.is-selected {
-      background: rgba(232, 234, 237, 0.12);
+      background: ${arcade.accentSoft};
     }
     ul.arcades-game-list > li.arcades-game-item.is-selected:hover,
     ul.arcades-game-list > li.arcades-game-item.is-selected:focus-within {
-      background: rgba(232, 234, 237, 0.16);
+      background: ${arcade.accentSoftHot};
     }
     ul.arcades-game-list > li.arcades-game-item > a.arcades-game-link {
       display: block;
-      padding: 10px 12px;
-      border-radius: 20px;
+      padding: 12px 10px;
+      border-radius: 6px;
       text-decoration: none;
-      font-size: 15px;
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 1px;
       line-height: 1.3;
-      color: #c4c7c5;
+      color: ${arcade.text};
       outline: none;
       cursor: pointer;
+      text-transform: uppercase;
     }
     ul.arcades-game-list > li.arcades-game-item > a.arcades-game-link.is-selected {
-      font-weight: 600;
-      color: #e8eaed;
+      color: ${arcade.brand};
     }
     ul.arcades-game-list > li.arcades-game-item > a.arcades-game-link:focus-visible {
-      outline: 1px solid rgba(232, 234, 237, 0.4);
+      outline: 1px solid ${arcade.brand};
       outline-offset: 2px;
-    }
-
-    ul.arcades-game-list[data-scheme="light"] > li.arcades-game-item:hover {
-      background: rgba(31, 31, 31, 0.05);
-    }
-    ul.arcades-game-list[data-scheme="light"] > li.arcades-game-item:focus-within {
-      background: rgba(31, 31, 31, 0.07);
-      box-shadow: inset 0 0 0 1px rgba(31, 31, 31, 0.22);
-    }
-    ul.arcades-game-list[data-scheme="light"] > li.arcades-game-item.is-selected {
-      background: rgba(31, 31, 31, 0.08);
-    }
-    ul.arcades-game-list[data-scheme="light"] > li.arcades-game-item.is-selected:hover,
-    ul.arcades-game-list[data-scheme="light"] > li.arcades-game-item.is-selected:focus-within {
-      background: rgba(31, 31, 31, 0.12);
-    }
-    ul.arcades-game-list[data-scheme="light"] > li.arcades-game-item > a.arcades-game-link {
-      color: #444746;
-    }
-    ul.arcades-game-list[data-scheme="light"] > li.arcades-game-item > a.arcades-game-link.is-selected {
-      color: #1f1f1f;
-    }
-    ul.arcades-game-list[data-scheme="light"] > li.arcades-game-item > a.arcades-game-link:focus-visible {
-      outline-color: rgba(31, 31, 31, 0.35);
     }
 `;
 

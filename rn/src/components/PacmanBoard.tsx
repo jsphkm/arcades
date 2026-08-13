@@ -1,0 +1,505 @@
+import { createElement, useEffect, useRef } from "react";
+import { Platform, StyleSheet, View } from "react-native";
+import { POWER_BLINK_FRAMES } from "../game/pacman/engine";
+import { COLS, MAZE, ROWS } from "../game/pacman/maze";
+import type { Ghost, PacmanSnapshot } from "../game/pacman/types";
+
+type Props = {
+  snap: PacmanSnapshot;
+  boardW: number;
+  boardH: number;
+  getSnap?: () => PacmanSnapshot;
+};
+
+/** Classic arcade Namco-style course colors */
+const WALL_BLUE = "#2121ff";
+const WALL_INNER = "#2121de";
+const GATE = "#ffb8ff";
+const PELLET = "#ffb897";
+const POWER = "#ffb897";
+const PAC = "#ffff00";
+const FRIGHT_BLUE = "#2121de";
+const EYE_BLUE = "#2121ff";
+
+/**
+ * Actor diameter vs cell — classic fit: nearly corridor-wide with a
+ * thin gap so walls don't clip.
+ */
+const ACTOR_PAC = 1.0;
+const ACTOR_GHOST = 1.0;
+const ACTOR_FRUIT = 0.95;
+/** Classic pellets are small squares (~1/4–1/5 of a tile). */
+const DOT_SIZE = 0.2;
+/** Energizer ~ half a character. */
+const POWER_DIAM = 0.5;
+/** Mini-Pac lives icon diameter vs cell. */
+const LIFE_PAC = 0.85;
+/** Extra vertical pad so actors don't clip at board edges. */
+const ACTOR_EDGE_PAD = 0.35;
+
+/** Solid for outline purposes: walls, void, gate, and ghost-house pen. */
+function isSolid(x: number, y: number): boolean {
+  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return true;
+  const t = MAZE[y][x];
+  return t === 0 || t === 4 || t === 5 || t === 6;
+}
+
+/** Playable corridor (pellets / empty / power) — not house or gate. */
+function isPath(x: number, y: number): boolean {
+  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return false;
+  const t = MAZE[y][x];
+  return t === 1 || t === 2 || t === 3;
+}
+
+/** Classic arcade double-line blue maze (course look / ~48px tile weight). */
+function drawClassicMaze(ctx: CanvasRenderingContext2D, cell: number) {
+  // Outer ~13% / inner ~7% of cell ≈ 6px / 3.5px on a 48px maze tile.
+  const outerW = Math.max(2.2, cell * 0.135);
+  const innerW = Math.max(1.1, cell * 0.07);
+  const inset = Math.max(1.5, cell * 0.15);
+  // Softer corners — avoid neon-tube look.
+  const r = Math.max(1.5, cell * 0.2);
+
+  const strokeCorridors = (width: number, color: string, pad: number) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    for (let y = 0; y < ROWS; y += 1) {
+      for (let x = 0; x < COLS; x += 1) {
+        if (!isPath(x, y)) continue;
+        const x0 = x * cell + pad;
+        const y0 = y * cell + pad;
+        const x1 = (x + 1) * cell - pad;
+        const y1 = (y + 1) * cell - pad;
+        const n = isSolid(x, y - 1);
+        const s = isSolid(x, y + 1);
+        const w = isSolid(x - 1, y);
+        const e = isSolid(x + 1, y);
+        const rad = Math.min(r, (cell - pad * 2) * 0.4);
+
+        if (n) {
+          ctx.moveTo(x0 + (w ? rad : 0), y0);
+          ctx.lineTo(x1 - (e ? rad : 0), y0);
+        }
+        if (s) {
+          ctx.moveTo(x0 + (w ? rad : 0), y1);
+          ctx.lineTo(x1 - (e ? rad : 0), y1);
+        }
+        if (w) {
+          ctx.moveTo(x0, y0 + (n ? rad : 0));
+          ctx.lineTo(x0, y1 - (s ? rad : 0));
+        }
+        if (e) {
+          ctx.moveTo(x1, y0 + (n ? rad : 0));
+          ctx.lineTo(x1, y1 - (s ? rad : 0));
+        }
+        if (n && w) {
+          ctx.moveTo(x0, y0 + rad);
+          ctx.quadraticCurveTo(x0, y0, x0 + rad, y0);
+        }
+        if (n && e) {
+          ctx.moveTo(x1 - rad, y0);
+          ctx.quadraticCurveTo(x1, y0, x1, y0 + rad);
+        }
+        if (s && w) {
+          ctx.moveTo(x0, y1 - rad);
+          ctx.quadraticCurveTo(x0, y1, x0 + rad, y1);
+        }
+        if (s && e) {
+          ctx.moveTo(x1 - rad, y1);
+          ctx.quadraticCurveTo(x1, y1, x1, y1 - rad);
+        }
+      }
+    }
+    ctx.stroke();
+  };
+
+  strokeCorridors(outerW, WALL_BLUE, 0);
+  strokeCorridors(innerW, WALL_INNER, inset);
+
+  // Ghost-house rectangle (classic pen) — not stroked as corridors.
+  let hx0 = COLS;
+  let hy0 = ROWS;
+  let hx1 = 0;
+  let hy1 = 0;
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      const t = MAZE[y][x];
+      if (t !== 4 && t !== 5) continue;
+      hx0 = Math.min(hx0, x);
+      hy0 = Math.min(hy0, y);
+      hx1 = Math.max(hx1, x + 1);
+      hy1 = Math.max(hy1, y + 1);
+    }
+  }
+  if (hx1 > hx0) {
+    const pad = cell * 0.1;
+    const rx = hx0 * cell + pad;
+    const ry = hy0 * cell + pad;
+    const rw = (hx1 - hx0) * cell - pad * 2;
+    const rh = (hy1 - hy0) * cell - pad * 2;
+    ctx.strokeStyle = WALL_BLUE;
+    ctx.lineWidth = outerW;
+    ctx.strokeRect(rx, ry, rw, rh);
+    ctx.strokeStyle = WALL_INNER;
+    ctx.lineWidth = innerW;
+    const ii = inset * 0.55;
+    ctx.strokeRect(rx + ii, ry + ii, rw - ii * 2, rh - ii * 2);
+
+    // Pink door bar across the gate tiles
+    for (let y = 0; y < ROWS; y += 1) {
+      for (let x = 0; x < COLS; x += 1) {
+        if (MAZE[y][x] !== 4) continue;
+        ctx.fillStyle = GATE;
+        ctx.fillRect(
+          x * cell + cell * 0.05,
+          y * cell + cell * 0.38,
+          cell * 0.9,
+          Math.max(2, cell * 0.18),
+        );
+      }
+    }
+  }
+}
+
+function drawPac(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  cell: number,
+  dir: { x: number; y: number },
+  mouth: number,
+) {
+  const cx = (x + 0.5) * cell;
+  const cy = (y + 0.5) * cell;
+  const r = (ACTOR_PAC * cell) / 2;
+  let ang = 0;
+  if (dir.x === 1) ang = 0;
+  else if (dir.x === -1) ang = Math.PI;
+  else if (dir.y === -1) ang = -Math.PI / 2;
+  else if (dir.y === 1) ang = Math.PI / 2;
+
+  // Halloween doodle: 3-frame munch @ 15fps (closed → mid → wide).
+  const frame = Math.floor(mouth) % 3;
+  const open = frame === 0 ? 0.05 : frame === 1 ? 0.45 : 0.8;
+  ctx.fillStyle = PAC;
+  ctx.beginPath();
+  if (open < 0.08) {
+    ctx.arc(cx, cy, r, 0, Math.PI * 2, false);
+  } else {
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, ang + open, ang + Math.PI * 2 - open, false);
+    ctx.closePath();
+  }
+  ctx.fill();
+}
+
+function drawGhost(
+  ctx: CanvasRenderingContext2D,
+  g: Ghost,
+  cell: number,
+  time: number,
+  frightFlash: boolean,
+) {
+  const cx = (g.x + 0.5) * cell;
+  const cy = (g.y + 0.5) * cell;
+  const size = ACTOR_GHOST * cell;
+  const w = size;
+  const h = size * 1.02;
+  // Subtle 2-phase bob (SF ghost 01/02 frames)
+  const bob = Math.sin(time * 10 + g.x * 2) * cell * 0.04;
+
+  if (g.mode === "eaten" || g.mode === "entering") {
+    const er = size * 0.14;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(cx - w * 0.18, cy + bob, er, 0, Math.PI * 2);
+    ctx.arc(cx + w * 0.18, cy + bob, er, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = EYE_BLUE;
+    const ex = g.dir.x * size * 0.06;
+    const ey = g.dir.y * size * 0.06;
+    ctx.beginPath();
+    ctx.arc(cx - w * 0.18 + ex, cy + bob + ey, er * 0.45, 0, Math.PI * 2);
+    ctx.arc(cx + w * 0.18 + ex, cy + bob + ey, er * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  let body = g.color;
+  if (g.mode === "frightened") {
+    body = frightFlash ? "#ffffff" : FRIGHT_BLUE;
+  }
+
+  const top = cy - h * 0.38 + bob;
+  const left = cx - w / 2;
+  const right = cx + w / 2;
+  const bottom = cy + h * 0.42 + bob;
+
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.arc(cx, top + w * 0.38, w * 0.5, Math.PI, 0, false);
+  ctx.lineTo(right, bottom);
+  const scallops = 4;
+  for (let i = 0; i < scallops; i += 1) {
+    const t1 = (i + 0.5) / scallops;
+    const t2 = (i + 1) / scallops;
+    const x1 = right - (right - left) * t1;
+    const x2 = right - (right - left) * t2;
+    ctx.quadraticCurveTo(x1, bottom + cell * 0.12, x2, bottom);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  const eyeY = cy - size * 0.06 + bob;
+  const eyeR = size * 0.13;
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(cx - w * 0.18, eyeY, eyeR, 0, Math.PI * 2);
+  ctx.arc(cx + w * 0.18, eyeY, eyeR, 0, Math.PI * 2);
+  ctx.fill();
+  if (g.mode !== "frightened") {
+    ctx.fillStyle = EYE_BLUE;
+    const ex = g.dir.x * size * 0.055;
+    const ey = g.dir.y * size * 0.055;
+    ctx.beginPath();
+    ctx.arc(cx - w * 0.18 + ex, eyeY + ey, eyeR * 0.48, 0, Math.PI * 2);
+    ctx.arc(cx + w * 0.18 + ex, eyeY + ey, eyeR * 0.48, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = frightFlash ? FRIGHT_BLUE : GATE;
+    ctx.lineWidth = Math.max(1.5, size * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.22, cy + size * 0.12 + bob);
+    ctx.lineTo(cx - w * 0.08, cy + size * 0.06 + bob);
+    ctx.lineTo(cx + w * 0.08, cy + size * 0.12 + bob);
+    ctx.lineTo(cx + w * 0.22, cy + size * 0.06 + bob);
+    ctx.stroke();
+  }
+}
+
+function drawFruit(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  cell: number,
+  color: string,
+  label: string,
+) {
+  const cx = (x + 0.5) * cell;
+  const cy = (y + 0.5) * cell;
+  const size = ACTOR_FRUIT * cell;
+  const bodyR = size * 0.32;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy + size * 0.04, bodyR, 0, Math.PI * 2);
+  ctx.fill();
+  // Cherry twin for first-fruit cue
+  if (label.toLowerCase().includes("cherry")) {
+    ctx.beginPath();
+    ctx.arc(cx + bodyR * 0.85, cy + size * 0.08, bodyR * 0.85, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = "#3d8c40";
+  ctx.lineWidth = Math.max(1.5, size * 0.06);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - bodyR * 0.2);
+  ctx.quadraticCurveTo(cx - size * 0.1, cy - size * 0.35, cx - size * 0.05, cy - size * 0.42);
+  ctx.stroke();
+  ctx.fillStyle = "#3d8c40";
+  ctx.beginPath();
+  ctx.ellipse(
+    cx - size * 0.12,
+    cy - size * 0.38,
+    size * 0.12,
+    size * 0.07,
+    -0.5,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  ctx.beginPath();
+  ctx.arc(cx - bodyR * 0.3, cy - bodyR * 0.15, bodyR * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function paint(
+  ctx: CanvasRenderingContext2D,
+  snap: PacmanSnapshot,
+  width: number,
+  height: number,
+  dpr: number,
+) {
+  // Life band sized for mini-Pac icons (~0.9 cell) under the course.
+  const edgePad = ACTOR_EDGE_PAD;
+  // Provisional cell from full play area, then reserve life band + edge pad.
+  const lifeBandGuess = Math.max(22, Math.min(36, height * 0.07));
+  const playH = height - lifeBandGuess;
+  const cell = Math.min(width / COLS, playH / (ROWS + edgePad));
+  const w = cell * COLS;
+  const h = cell * ROWS;
+  const lifeBand = Math.max(cell * LIFE_PAC * 1.35, lifeBandGuess * 0.85);
+  const ox = (width - w) / 2;
+  // Top pad for actor overhang; remaining slack centered.
+  const topPad = cell * edgePad * 0.5;
+  const usable = height - lifeBand - topPad;
+  const oy = topPad + Math.max(0, (usable - h) / 2);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.save();
+  ctx.translate(ox, oy);
+  const t = snap.frame / 8;
+  drawClassicMaze(ctx, cell);
+
+  const powerOn =
+    snap.frame % POWER_BLINK_FRAMES < POWER_BLINK_FRAMES / 2;
+  const dotS = DOT_SIZE * cell;
+  const powerR = (POWER_DIAM * cell) / 2;
+
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      if (snap.pellets[y]?.[x]) {
+        // Classic arcade pellets are small squares, not circles.
+        ctx.fillStyle = PELLET;
+        ctx.fillRect(
+          (x + 0.5) * cell - dotS / 2,
+          (y + 0.5) * cell - dotS / 2,
+          dotS,
+          dotS,
+        );
+      }
+      if (snap.powers[y]?.[x] && powerOn) {
+        ctx.fillStyle = POWER;
+        ctx.beginPath();
+        ctx.arc((x + 0.5) * cell, (y + 0.5) * cell, powerR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  if (snap.fruit) {
+    drawFruit(
+      ctx,
+      snap.fruit.x,
+      snap.fruit.y,
+      cell,
+      snap.fruit.kind.color,
+      snap.fruit.kind.label,
+    );
+  }
+
+  const flash = snap.frightFlash;
+  for (const g of snap.ghosts) {
+    drawGhost(ctx, g, cell, t, flash);
+  }
+
+  if (!snap.eatPopup) {
+    drawPac(ctx, snap.pac.x, snap.pac.y, cell, snap.pac.dir, snap.pac.mouth);
+  } else {
+    const p = snap.eatPopup;
+    const rise = (1 - p.left / Math.max(0.001, 1)) * cell * 0.45;
+    ctx.fillStyle = "#00e5ff";
+    ctx.font = `bold ${Math.max(12, cell * 0.7)}px JetBrainsMonoNL, monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      String(p.points),
+      (p.x + 0.5) * cell,
+      (p.y + 0.5) * cell - rise,
+    );
+  }
+
+  // Footer-style lives under the course
+  const lifeR = (LIFE_PAC * cell) / 2;
+  const lifeY = h + lifeBand * 0.55;
+  const gap = lifeR * 2.4;
+  const livesW = Math.max(0, snap.lives) * gap;
+  const lifeStart = (w - livesW) / 2 + lifeR;
+  for (let i = 0; i < snap.lives; i += 1) {
+    const lx = lifeStart + i * gap;
+    ctx.fillStyle = PAC;
+    ctx.beginPath();
+    ctx.moveTo(lx, lifeY);
+    ctx.arc(lx, lifeY, lifeR, 0.45, Math.PI * 2 - 0.45);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/** Extra canvas height for life band + actor edge pad (fraction of boardH). */
+export const PACMAN_BOARD_EXTRA = 36;
+
+export function PacmanBoard({ snap, boardW, boardH, getSnap }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const getSnapRef = useRef(getSnap);
+  const snapRef = useRef(snap);
+  getSnapRef.current = getSnap;
+  snapRef.current = snap;
+
+  const cssW = Math.max(1, Math.floor(boardW));
+  const cssH = Math.max(1, Math.floor(boardH + PACMAN_BOARD_EXTRA));
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr =
+      typeof window !== "undefined"
+        ? Math.min(2, window.devicePixelRatio || 1)
+        : 1;
+
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    canvas.style.display = "block";
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let raf = 0;
+    const loop = () => {
+      const s = getSnapRef.current ? getSnapRef.current() : snapRef.current;
+      paint(ctx, s, cssW, cssH, dpr);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [cssW, cssH]);
+
+  if (Platform.OS !== "web") {
+    return <View style={[styles.root, { width: cssW, height: cssH }]} />;
+  }
+
+  return createElement(
+    "div",
+    {
+      style: {
+        width: cssW,
+        height: cssH,
+        backgroundColor: "#000",
+        overflow: "hidden",
+        position: "relative" as const,
+        margin: "0 auto",
+      },
+    },
+    createElement("canvas", { ref: canvasRef }),
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    backgroundColor: "#000",
+    overflow: "hidden",
+  },
+});
