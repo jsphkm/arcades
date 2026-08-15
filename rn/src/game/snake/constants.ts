@@ -1,4 +1,4 @@
-import { space } from "../theme";
+import { space } from "../../theme";
 
 
 export const RES = 20;

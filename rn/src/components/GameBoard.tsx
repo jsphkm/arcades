@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Easing } from "react-native";
-import { COLS } from "../game/constants";
-import type { Snake } from "../game/snake";
+import { COLS } from "../game/snake/constants";
+import type { Snake } from "../game/snake/snake";
 import { palette } from "../theme";
 import { USE_NATIVE_DRIVER } from "../platform";
 

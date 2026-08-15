@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "expo-router";
 import { Platform } from "react-native";
-import { TICK_MS } from "../game/constants";
+import { TICK_MS } from "../game/snake/constants";
 import {
   drawGame,
   getWorld,
@@ -9,8 +9,8 @@ import {
   startGame as worldStartGame,
   type GameState,
   type Point,
-} from "../game/world";
-import type { Snake } from "../game/snake";
+} from "../game/snake/world";
+import type { Snake } from "../game/snake/snake";
 import type { Dir } from "../game/dir";
 
 const HIGH_SCORE_KEY = "snake-high-score";
