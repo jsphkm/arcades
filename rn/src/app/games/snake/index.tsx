@@ -5,7 +5,7 @@ import { arcade } from "../../../arcadeTheme";
 import { useTheme } from "../../../theme-context";
 import { useSnakeGame } from "../../../hooks/useSnakeGame";
 import { Menu } from "../../../components/Menu";
-import { GameBoard } from "../../../components/GameBoard";
+import { GameBoard } from "../../../components/snake/GameBoard";
 import { Controls } from "../../../components/Controls";
 import { ScoreHud } from "../../../components/ScoreHud";
 import {
