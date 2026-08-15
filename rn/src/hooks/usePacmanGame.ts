@@ -10,7 +10,8 @@ import {
   startPacman,
   tickPacman,
 } from "../game/pacman/engine";
-import type { Dir, GamePhase, PacmanSnapshot } from "../game/pacman/types";
+import type { GamePhase, PacmanSnapshot } from "../game/pacman/types";
+import type { Dir } from "../game/dir";
 
 const HIGH_SCORE_KEY = "pacman-high-score";
 

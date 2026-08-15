@@ -11,8 +11,7 @@ import {
   type Point,
 } from "../game/world";
 import type { Snake } from "../game/snake";
-
-export type Dir = { x: number; y: number };
+import type { Dir } from "../game/dir";
 
 const HIGH_SCORE_KEY = "snake-high-score";
 

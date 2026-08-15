@@ -1,4 +1,4 @@
-export type Dir = { x: number; y: number };
+import type { Dir } from "../dir";
 
 export type GamePhase = 
     | "menu"

@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { Joystick } from "./Joystick";
 import { ActionButtons, type FaceLabels } from "./ActionButtons";
-import type { Dir } from "../game/pacman/types";
+import type { Dir } from "../game/dir";
 
 type Props = {
   onDirection: (x: number, y: number) => void;

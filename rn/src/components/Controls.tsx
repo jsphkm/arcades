@@ -1,5 +1,5 @@
 import { Joystick } from "./Joystick";
-import type { Dir } from "../hooks/useSnakeGame";
+import type { Dir } from "../game/dir";
 
 type Props = {
   onDirection: (x: number, y: number) => void;

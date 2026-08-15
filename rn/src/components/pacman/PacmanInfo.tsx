@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { arcade } from "../arcadeTheme";
-import { FRUIT_TABLE } from "../game/pacman/types";
-import { useTheme } from "../theme-context";
+import { arcade } from "../../arcadeTheme";
+import { FRUIT_TABLE } from "../../game/pacman/types";
+import { useTheme } from "../../theme-context";
 
 type Props = {
   onClose: () => void;

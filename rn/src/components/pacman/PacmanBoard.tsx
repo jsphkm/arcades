@@ -1,8 +1,8 @@
 import { createElement, useEffect, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
-import { POWER_BLINK_FRAMES } from "../game/pacman/engine";
-import { COLS, MAZE, ROWS } from "../game/pacman/maze";
-import type { Ghost, PacmanSnapshot } from "../game/pacman/types";
+import { POWER_BLINK_FRAMES } from "../../game/pacman/engine";
+import { COLS, MAZE, ROWS } from "../../game/pacman/maze";
+import type { Ghost, PacmanSnapshot } from "../../game/pacman/types";
 
 type Props = {
   snap: PacmanSnapshot;
