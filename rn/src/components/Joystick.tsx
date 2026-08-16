@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { PanResponder, Platform, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../theme-context";
-import type { Dir } from "../hooks/useSnakeGame";
+import type { Dir } from "../game/dir";
 
 const BASE_SIZE = 140;
 const KNOB_SIZE = 56;

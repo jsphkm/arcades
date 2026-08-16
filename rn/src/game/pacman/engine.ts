@@ -9,18 +9,18 @@ import {
   wrapX,
 } from "./maze";
 import {
-  DIRS,
   FRUIT_TABLE,
   fruitForStage,
   opposite,
   sameDir,
-  type Dir,
+  DIRS,
   type EatPopup,
   type FruitKind,
   type GamePhase,
   type Ghost,
   type PacmanSnapshot,
 } from "./types";
+import type { Dir } from "../dir";
 
 const TILE_PX = 16;
 const pxSpeed = (pxPerSec: number) => pxPerSec / TILE_PX;

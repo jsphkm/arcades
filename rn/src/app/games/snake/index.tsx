@@ -5,8 +5,7 @@ import { arcade } from "../../../arcadeTheme";
 import { useTheme } from "../../../theme-context";
 import { useSnakeGame } from "../../../hooks/useSnakeGame";
 import { Menu } from "../../../components/Menu";
-import { GameBoard } from "../../../components/GameBoard";
-import { Controls } from "../../../components/Controls";
+import { GameBoard } from "../../../components/snake/GameBoard";
 import { ScoreHud } from "../../../components/ScoreHud";
 import {
   ArcadeShell,
@@ -14,6 +13,7 @@ import {
 } from "../../../components/ArcadeShell";
 import { detectDevice, submitScore } from "../../../scores/api";
 import { arcadesAuthConfig } from "../../../auth/config";
+import { Joystick } from "../../../components/Joystick";
 
 const JOYSTICK_SLOT = 180;
 const SCORE_HUD = 54;
@@ -70,7 +70,7 @@ function GameScreenBody({
   }, [width, height, space.board, isLandscape, sidebarW]);
 
   const controls = (
-    <Controls
+    <Joystick
       enabled={state === "playing"}
       activeDir={activeDir}
       travelDir={travelDir}

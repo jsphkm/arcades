@@ -16,8 +16,8 @@ import { Menu } from "../../../components/Menu";
 import {
   PacmanBoard,
   PACMAN_BOARD_EXTRA,
-} from "../../../components/PacmanBoard";
-import { PacmanInfo } from "../../../components/PacmanInfo";
+} from "../../../components/pacman/PacmanBoard";
+import { PacmanInfo } from "../../../components/pacman/PacmanInfo";
 import { ScoreHud } from "../../../components/ScoreHud";
 import { arcade } from "../../../arcadeTheme";
 import { usePacmanGame } from "../../../hooks/usePacmanGame";
