@@ -37,6 +37,86 @@ const LIFE_PAC = 0.85;
 /** Extra vertical pad so actors don't clip at board edges. */
 const ACTOR_EDGE_PAD = 0.35;
 
+function isWallCell(x: number, y: number): boolean {
+    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return false;
+    return MAZE[y][x] === 0;
+}
+
+function drawMaze(ctx: CanvasRenderingContext2D, cell: number) {
+    const lw = Math.max(1, cell * 0.125);
+    const pad = cell * 0.18;
+    const r = Math.min(cell * 0.35, cell / 2 - pad);
+    ctx.strokeStyle = WALL_BLUE;
+    ctx.lineWidth = lw;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (let y = 0; y < ROWS; y += 1) {
+        for (let x = 0; x < COLS; x += 1) {
+            if (!isWallCell(x, y)) continue;
+            const oN = !isWallCell(x, y - 1);
+            const oS = !isWallCell(x, y + 1);
+            const oW = !isWallCell(x - 1, y);
+            const oE = !isWallCell(x + 1, y);
+            if (!oN && !oS && !oW && !oE) continue;
+            const l = x * cell;
+            const t = y * cell;
+            const rt = l + cell;
+            const b = t + cell;
+            const x0 = l + pad;
+            const y0 = t + pad;
+            const x1 = rt - pad;
+            const y1 = b - pad;
+
+            if (oN) {
+              ctx.moveTo(oW ? x0 + r : l - pad, y0);
+              ctx.lineTo(oE ? x1 - r : rt + pad, y0);
+            }
+            if (oS) {
+              ctx.moveTo(oW ? x0 + r : l - pad, y1);
+              ctx.lineTo(oE ? x1 - r : rt + pad, y1);
+            }
+            if (oW) {
+              ctx.moveTo(x0, oN ? y0 + r : t - pad);
+              ctx.lineTo(x0, oS ? y1 - r : b + pad);
+            }
+            if (oE) {
+              ctx.moveTo(x1, oN ? y0 + r : t - pad);
+              ctx.lineTo(x1, oS ? y1 - r : b + pad);
+            }
+            if (oN && oW) {
+              ctx.moveTo(x0, y0 + r);
+              ctx.quadraticCurveTo(x0, y0, x0 + r, y0);
+            }
+            if (oN && oE) {
+              ctx.moveTo(x1 - r, y0);
+              ctx.quadraticCurveTo(x1, y0, x1, y0 + r);
+            }
+            if (oS && oW) {
+              ctx.moveTo(x0, y1 - r);
+              ctx.quadraticCurveTo(x0, y1, x0 + r, y1);
+            }
+            if (oS && oE) {
+              ctx.moveTo(x1 - r, y1);
+              ctx.quadraticCurveTo(x1, y1, x1, y1 - r);
+            }
+        }
+    }
+    ctx.stroke();
+    for (let y = 0; y < ROWS; y += 1) {
+        for (let x = 0; x < COLS; x += 1) {
+            if (MAZE[y][x] !== 4) continue;
+            ctx.fillStyle = GATE;
+            ctx.fillRect(
+                x * cell,
+                y * cell + cell * 0.4,
+                cell,
+                Math.max(2, cell * 0.16),
+            );
+        }
+    }
+}
+
 /** Solid for outline purposes: walls, void, gate, and ghost-house pen. */
 function isSolid(x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return true;
@@ -49,119 +129,6 @@ function isPath(x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return false;
   const t = MAZE[y][x];
   return t === 1 || t === 2 || t === 3;
-}
-
-/** Classic arcade double-line blue maze (course look / ~48px tile weight). */
-function drawClassicMaze(ctx: CanvasRenderingContext2D, cell: number) {
-  // Outer ~13% / inner ~7% of cell ≈ 6px / 3.5px on a 48px maze tile.
-  const outerW = Math.max(2.2, cell * 0.135);
-  const innerW = Math.max(1.1, cell * 0.07);
-  const inset = Math.max(1.5, cell * 0.15);
-  // Softer corners — avoid neon-tube look.
-  const r = Math.max(1.5, cell * 0.2);
-
-  const strokeCorridors = (width: number, color: string, pad: number) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    for (let y = 0; y < ROWS; y += 1) {
-      for (let x = 0; x < COLS; x += 1) {
-        if (!isPath(x, y)) continue;
-        const x0 = x * cell + pad;
-        const y0 = y * cell + pad;
-        const x1 = (x + 1) * cell - pad;
-        const y1 = (y + 1) * cell - pad;
-        const n = isSolid(x, y - 1);
-        const s = isSolid(x, y + 1);
-        const w = isSolid(x - 1, y);
-        const e = isSolid(x + 1, y);
-        const rad = Math.min(r, (cell - pad * 2) * 0.4);
-
-        if (n) {
-          ctx.moveTo(x0 + (w ? rad : 0), y0);
-          ctx.lineTo(x1 - (e ? rad : 0), y0);
-        }
-        if (s) {
-          ctx.moveTo(x0 + (w ? rad : 0), y1);
-          ctx.lineTo(x1 - (e ? rad : 0), y1);
-        }
-        if (w) {
-          ctx.moveTo(x0, y0 + (n ? rad : 0));
-          ctx.lineTo(x0, y1 - (s ? rad : 0));
-        }
-        if (e) {
-          ctx.moveTo(x1, y0 + (n ? rad : 0));
-          ctx.lineTo(x1, y1 - (s ? rad : 0));
-        }
-        if (n && w) {
-          ctx.moveTo(x0, y0 + rad);
-          ctx.quadraticCurveTo(x0, y0, x0 + rad, y0);
-        }
-        if (n && e) {
-          ctx.moveTo(x1 - rad, y0);
-          ctx.quadraticCurveTo(x1, y0, x1, y0 + rad);
-        }
-        if (s && w) {
-          ctx.moveTo(x0, y1 - rad);
-          ctx.quadraticCurveTo(x0, y1, x0 + rad, y1);
-        }
-        if (s && e) {
-          ctx.moveTo(x1 - rad, y1);
-          ctx.quadraticCurveTo(x1, y1, x1, y1 - rad);
-        }
-      }
-    }
-    ctx.stroke();
-  };
-
-  strokeCorridors(outerW, WALL_BLUE, 0);
-  strokeCorridors(innerW, WALL_INNER, inset);
-
-  // Ghost-house rectangle (classic pen) — not stroked as corridors.
-  let hx0 = COLS;
-  let hy0 = ROWS;
-  let hx1 = 0;
-  let hy1 = 0;
-  for (let y = 0; y < ROWS; y += 1) {
-    for (let x = 0; x < COLS; x += 1) {
-      const t = MAZE[y][x];
-      if (t !== 4 && t !== 5) continue;
-      hx0 = Math.min(hx0, x);
-      hy0 = Math.min(hy0, y);
-      hx1 = Math.max(hx1, x + 1);
-      hy1 = Math.max(hy1, y + 1);
-    }
-  }
-  if (hx1 > hx0) {
-    const pad = cell * 0.1;
-    const rx = hx0 * cell + pad;
-    const ry = hy0 * cell + pad;
-    const rw = (hx1 - hx0) * cell - pad * 2;
-    const rh = (hy1 - hy0) * cell - pad * 2;
-    ctx.strokeStyle = WALL_BLUE;
-    ctx.lineWidth = outerW;
-    ctx.strokeRect(rx, ry, rw, rh);
-    ctx.strokeStyle = WALL_INNER;
-    ctx.lineWidth = innerW;
-    const ii = inset * 0.55;
-    ctx.strokeRect(rx + ii, ry + ii, rw - ii * 2, rh - ii * 2);
-
-    // Pink door bar across the gate tiles
-    for (let y = 0; y < ROWS; y += 1) {
-      for (let x = 0; x < COLS; x += 1) {
-        if (MAZE[y][x] !== 4) continue;
-        ctx.fillStyle = GATE;
-        ctx.fillRect(
-          x * cell + cell * 0.05,
-          y * cell + cell * 0.38,
-          cell * 0.9,
-          Math.max(2, cell * 0.18),
-        );
-      }
-    }
-  }
 }
 
 function drawPac(
@@ -391,7 +358,7 @@ function paint(
   ctx.save();
   ctx.translate(ox, oy);
   const t = snap.frame / 8;
-  drawClassicMaze(ctx, cell);
+  drawMaze(ctx, cell);
 
   const powerOn =
     snap.frame % POWER_BLINK_FRAMES < POWER_BLINK_FRAMES / 2;
@@ -512,8 +479,10 @@ export function PacmanBoard({ snap, boardW, boardH, getSnap }: Props) {
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     canvas.style.display = "block";
+    canvas.style.imageRendering = "pixelated";
     canvas.width = Math.floor(cssW * dpr);
     canvas.height = Math.floor(cssH * dpr);
+    
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
