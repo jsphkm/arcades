@@ -12,30 +12,21 @@ type Props = {
   getSnap?: () => PacmanSnapshot;
 };
 
-/** Classic arcade Namco-style course colors */
-const WALL_BLUE = "#2121ff";
+const WALL_BLUE = "#2c35da";
 const GATE = "#ffb8ff";
-const PELLET = "#ffb897";
-const POWER = "#ffb897";
+const PELLET = "#ffc8a7";
+const POWER = "#ffc8a7";
 const PAC = "#ffff00";
 const FRIGHT_BLUE = "#2121de";
 const EYE_BLUE = "#2121ff";
 
-/**
- * Actor diameter vs cell — classic fit: nearly corridor-wide with a
- * thin gap so walls don't clip.
- */
-const ACTOR_PAC = 1.0;
-const ACTOR_GHOST = 1.0;
-const ACTOR_FRUIT = 0.95;
-/** Classic pellets are small squares (~1/4–1/5 of a tile). */
-const DOT_SIZE = 0.2;
-/** Energizer ~ half a character. */
-const POWER_DIAM = 0.5;
-/** Mini-Pac lives icon diameter vs cell. */
-const LIFE_PAC = 0.85;
-/** Extra vertical pad so actors don't clip at board edges. */
-const ACTOR_EDGE_PAD = 0.35;
+const ACTOR_PAC = 1.75;
+const ACTOR_GHOST = 1.75;
+const ACTOR_FRUIT = 1.5;
+const DOT_SIZE = 0.25;
+const POWER_DIAM = 1;
+const LIFE_PAC = 1.5;
+const ACTOR_EDGE_PAD = 0.4;
 
 /** Arcade tiles are 8x8 pixels; the atlas is authored at that resolution. */
 const TILE_PX = 8;
@@ -425,7 +416,7 @@ function paint(
   ctx.restore();
 }
 
-/** Extra canvas height for life band + actor edge pad (fraction of boardH). */
+/** Extra canvas height for life band + actor edge pad */
 export const PACMAN_BOARD_EXTRA = 36;
 
 export function PacmanBoard({ snap, boardW, boardH, getSnap }: Props) {
