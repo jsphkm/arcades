@@ -1,7 +1,8 @@
 import { createElement, useEffect, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { POWER_BLINK_FRAMES } from "../../game/pacman/engine";
-import { COLS, MAZE, ROWS } from "../../game/pacman/maze";
+import { COLS, ROWS } from "../../game/pacman/maze";
+import { MAZE_MAP, TILE_CHARS, TILES } from "../../game/pacman/mazeData";
 import type { Ghost, PacmanSnapshot } from "../../game/pacman/types";
 
 type Props = {
@@ -13,7 +14,6 @@ type Props = {
 
 /** Classic arcade Namco-style course colors */
 const WALL_BLUE = "#2121ff";
-const WALL_INNER = "#2121de";
 const GATE = "#ffb8ff";
 const PELLET = "#ffb897";
 const POWER = "#ffb897";
@@ -37,98 +37,70 @@ const LIFE_PAC = 0.85;
 /** Extra vertical pad so actors don't clip at board edges. */
 const ACTOR_EDGE_PAD = 0.35;
 
-function isWallCell(x: number, y: number): boolean {
-    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return false;
-    return MAZE[y][x] === 0;
-}
+/** Arcade tiles are 8x8 pixels; the atlas is authored at that resolution. */
+const TILE_PX = 8;
 
-function drawMaze(ctx: CanvasRenderingContext2D, cell: number) {
-    const lw = Math.max(1, cell * 0.125);
-    const pad = cell * 0.18;
-    const r = Math.min(cell * 0.35, cell / 2 - pad);
-    ctx.strokeStyle = WALL_BLUE;
-    ctx.lineWidth = lw;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    for (let y = 0; y < ROWS; y += 1) {
-        for (let x = 0; x < COLS; x += 1) {
-            if (!isWallCell(x, y)) continue;
-            const oN = !isWallCell(x, y - 1);
-            const oS = !isWallCell(x, y + 1);
-            const oW = !isWallCell(x - 1, y);
-            const oE = !isWallCell(x + 1, y);
-            if (!oN && !oS && !oW && !oE) continue;
-            const l = x * cell;
-            const t = y * cell;
-            const rt = l + cell;
-            const b = t + cell;
-            const x0 = l + pad;
-            const y0 = t + pad;
-            const x1 = rt - pad;
-            const y1 = b - pad;
+let mazeLayer: { key: string; canvas: HTMLCanvasElement } | null = null;
 
-            if (oN) {
-              ctx.moveTo(oW ? x0 + r : l - pad, y0);
-              ctx.lineTo(oE ? x1 - r : rt + pad, y0);
-            }
-            if (oS) {
-              ctx.moveTo(oW ? x0 + r : l - pad, y1);
-              ctx.lineTo(oE ? x1 - r : rt + pad, y1);
-            }
-            if (oW) {
-              ctx.moveTo(x0, oN ? y0 + r : t - pad);
-              ctx.lineTo(x0, oS ? y1 - r : b + pad);
-            }
-            if (oE) {
-              ctx.moveTo(x1, oN ? y0 + r : t - pad);
-              ctx.lineTo(x1, oS ? y1 - r : b + pad);
-            }
-            if (oN && oW) {
-              ctx.moveTo(x0, y0 + r);
-              ctx.quadraticCurveTo(x0, y0, x0 + r, y0);
-            }
-            if (oN && oE) {
-              ctx.moveTo(x1 - r, y0);
-              ctx.quadraticCurveTo(x1, y0, x1, y0 + r);
-            }
-            if (oS && oW) {
-              ctx.moveTo(x0, y1 - r);
-              ctx.quadraticCurveTo(x0, y1, x0 + r, y1);
-            }
-            if (oS && oE) {
-              ctx.moveTo(x1 - r, y1);
-              ctx.quadraticCurveTo(x1, y1, x1, y1 - r);
-            }
+/**
+ * The maze never changes, so paint the atlas once per size and blit it.
+ * Built at device resolution so the 1px arcade lines survive the DPR scale.
+ */
+function buildMazeLayer(cell: number, dpr: number): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  const key = `${cell}:${dpr}`;
+  if (mazeLayer && mazeLayer.key === key) return mazeLayer.canvas;
+
+  const scaled = cell * dpr;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(COLS * scaled));
+  canvas.height = Math.max(1, Math.round(ROWS * scaled));
+  const g = canvas.getContext("2d");
+  if (!g) return null;
+
+  const px = scaled / TILE_PX;
+  for (let y = 0; y < MAZE_MAP.length; y += 1) {
+    const row = MAZE_MAP[y];
+    for (let x = 0; x < row.length; x += 1) {
+      // Anything outside TILE_CHARS is a pellet, lane or pen cell: no art.
+      const tile = TILES[TILE_CHARS.indexOf(row[x])];
+      if (!tile) continue;
+      for (let ty = 0; ty < TILE_PX; ty += 1) {
+        const line = tile[ty];
+        let tx = 0;
+        while (tx < TILE_PX) {
+          const ch = line[tx];
+          if (ch === ".") {
+            tx += 1;
+            continue;
+          }
+          let end = tx + 1;
+          while (end < TILE_PX && line[end] === ch) end += 1;
+          // Snap to whole device pixels so the 1px arcade lines stay crisp.
+          const px0 = Math.round(x * scaled + tx * px);
+          const py0 = Math.round(y * scaled + ty * px);
+          g.fillStyle = ch === "=" ? GATE : WALL_BLUE;
+          g.fillRect(
+            px0,
+            py0,
+            Math.max(1, Math.round(x * scaled + end * px) - px0),
+            Math.max(1, Math.round(y * scaled + (ty + 1) * px) - py0),
+          );
+          tx = end;
         }
+      }
     }
-    ctx.stroke();
-    for (let y = 0; y < ROWS; y += 1) {
-        for (let x = 0; x < COLS; x += 1) {
-            if (MAZE[y][x] !== 4) continue;
-            ctx.fillStyle = GATE;
-            ctx.fillRect(
-                x * cell,
-                y * cell + cell * 0.4,
-                cell,
-                Math.max(2, cell * 0.16),
-            );
-        }
-    }
+  }
+
+  mazeLayer = { key, canvas };
+  return canvas;
 }
 
-/** Solid for outline purposes: walls, void, gate, and ghost-house pen. */
-function isSolid(x: number, y: number): boolean {
-  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return true;
-  const t = MAZE[y][x];
-  return t === 0 || t === 4 || t === 5 || t === 6;
-}
-
-/** Playable corridor (pellets / empty / power) — not house or gate. */
-function isPath(x: number, y: number): boolean {
-  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return false;
-  const t = MAZE[y][x];
-  return t === 1 || t === 2 || t === 3;
+function drawMaze(ctx: CanvasRenderingContext2D, cell: number, dpr: number) {
+  const layer = buildMazeLayer(cell, dpr);
+  if (!layer) return;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(layer, 0, 0, COLS * cell, ROWS * cell);
 }
 
 function drawPac(
@@ -358,7 +330,7 @@ function paint(
   ctx.save();
   ctx.translate(ox, oy);
   const t = snap.frame / 8;
-  drawMaze(ctx, cell);
+  drawMaze(ctx, cell, dpr);
 
   const powerOn =
     snap.frame % POWER_BLINK_FRAMES < POWER_BLINK_FRAMES / 2;

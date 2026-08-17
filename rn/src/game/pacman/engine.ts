@@ -55,8 +55,9 @@ const FRIGHT_FLASH_INTERVAL = 14 / 60;
 const FRIGHT_FLASHES = [5, 5, 5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 3, 5, 3, 3, 0, 3];
 const CENTER_EPS = 0.05;
 const COLLIDE_R2 = 0.45 * 0.45;
-const DOOR = { x: 13, y: 11 };
-const HOME = { x: 14, y: 14 };
+/** Both straddle columns 13/14, matching the door in the arcade art. */
+const DOOR = { x: 13.5, y: 11 };
+const HOME = { x: 13.5, y: 14 };
 
 type Engine = {
   phase: GamePhase;
