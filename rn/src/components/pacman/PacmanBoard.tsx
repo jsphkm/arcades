@@ -291,6 +291,10 @@ function drawFruit(
   ctx.fill();
 }
 
+function arcadeFont(cell: number): string {
+  return `${Math.max(8, Math.round(cell))}px PressStart2P, monospace`;
+}
+
 function paint(
   ctx: CanvasRenderingContext2D,
   snap: PacmanSnapshot,
@@ -375,7 +379,7 @@ function paint(
     const p = snap.eatPopup;
     const rise = (1 - p.left / Math.max(0.001, 1)) * cell * 0.45;
     ctx.fillStyle = "#00e5ff";
-    ctx.font = `bold ${Math.max(12, cell * 0.7)}px JetBrainsMonoNL, monospace`;
+    ctx.font = arcadeFont(cell);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(
@@ -386,13 +390,15 @@ function paint(
   }
 
   if (snap.phase === "ready" || snap.phase === "dead") {
-    ctx.font = `bold ${Math.max(14, cell * 0.85)}px JetBrainsMonoNL, monospace`;
-    ctx.textAlign = "center";
+    const label = snap.phase === "ready" ? "READY!" : "GAME OVER";
+    ctx.font = arcadeFont(cell);
+    ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillStyle = snap.phase === "ready" ? "#ffff00" : "#ff0000";
+    const labelW = ctx.measureText(label).width;
     ctx.fillText(
-      snap.phase === "ready" ? "READY!" : "GAME OVER",
-      14.0 * cell,
+      label,
+      Math.round((w - labelW) / 2),
       (17 + 0.5) * cell,
     );
   }
