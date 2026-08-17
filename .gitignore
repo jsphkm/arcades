@@ -1,4 +1,4 @@
-
+.local
 !.env*.example
 !.vscode/extensions.json
 !.vscode/launch.json
