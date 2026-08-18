@@ -21,6 +21,8 @@ import {
   type PacmanSnapshot,
 } from "./types";
 import type { Dir } from "../dir";
+import { moveActor } from "./movement";
+
 
 const TILE_PX = 16;
 const pxSpeed = (pxPerSec: number) => pxPerSec / TILE_PX;
@@ -53,7 +55,6 @@ const EAT_PAUSE_PELLET = 1 / 60;
 const EAT_PAUSE_POWER = 3 / 60;
 const FRIGHT_FLASH_INTERVAL = 14 / 60;
 const FRIGHT_FLASHES = [5, 5, 5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 3, 5, 3, 3, 0, 3];
-const CENTER_EPS = 0.05;
 const COLLIDE_R2 = 0.45 * 0.45;
 /** Both straddle columns 13/14, matching the door in the arcade art. */
 const DOOR = { x: 13.5, y: 11 };
@@ -267,16 +268,6 @@ function tileOf(x: number, y: number): { x: number; y: number } {
   return { x: Math.round(x), y: Math.round(y) };
 }
 
-function nearCenter(x: number, y: number): boolean {
-  return (
-    Math.abs(x - Math.round(x)) <= CENTER_EPS &&
-    Math.abs(y - Math.round(y)) <= CENTER_EPS
-  );
-}
-
-function snapCenter(x: number, y: number): { x: number; y: number } {
-  return { x: Math.round(x), y: Math.round(y) };
-}
 
 function isTunnelTile(tx: number, ty: number): boolean {
   return ty === 14 && (tx <= 5 || tx >= COLS - 6);
@@ -531,95 +522,6 @@ function tickGhost(g: Ghost, e: Engine, t: number) {
   g.x = gm.x;
   g.y = gm.y;
   g.dir = gm.dir;
-}
-
-/**
- * Axis-aligned move with center turns / wall stops — no sub-tile jitter.
- */
-function moveActor(
-  x: number,
-  y: number,
-  dir: Dir,
-  queued: Dir | null,
-  dist: number,
-  opts?: {
-    allowGate?: boolean;
-    turnAtCenter?: boolean;
-    /** Ghost AI: pick a new heading whenever a tile center is reached. */
-    chooseDir?: (tx: number, ty: number, dir: Dir) => Dir;
-  },
-): { x: number; y: number; dir: Dir; queued: Dir | null } {
-  let cx = x;
-  let cy = y;
-  let cd = dir;
-  let q = queued;
-  let remaining = dist;
-  const turnAtCenter = opts?.turnAtCenter !== false;
-
-  // Classic Pac-Man: reverse is allowed immediately, not only at centers.
-  if (q && sameDir(q, opposite(cd)) && !opts?.chooseDir) {
-    cd = q;
-    q = null;
-  }
-
-  while (remaining > 1e-6) {
-    const tx = Math.round(cx);
-    const ty = Math.round(cy);
-    const atCenter = nearCenter(cx, cy);
-
-    if (atCenter && turnAtCenter) {
-      const snapped = snapCenter(cx, cy);
-      cx = snapped.x;
-      cy = snapped.y;
-
-      if (opts?.chooseDir) {
-        cd = opts.chooseDir(tx, ty, cd);
-      } else if (q && !sameDir(q, cd)) {
-        if (canEnter(tx + q.x, ty + q.y, opts)) {
-          cd = q;
-          q = null;
-        }
-      }
-
-      if (!canEnter(tx + cd.x, ty + cd.y, opts)) {
-        // Stop flush on center when blocked.
-        return { x: cx, y: cy, dir: cd, queued: q };
-      }
-    }
-
-    // Distance to next tile center along current axis.
-    let toCenter: number;
-    if (cd.x !== 0) {
-      const next = cd.x > 0 ? Math.floor(cx) + 1 : Math.ceil(cx) - 1;
-      toCenter = Math.abs(next - cx);
-      if (toCenter < 1e-9) toCenter = 1;
-    } else if (cd.y !== 0) {
-      const next = cd.y > 0 ? Math.floor(cy) + 1 : Math.ceil(cy) - 1;
-      toCenter = Math.abs(next - cy);
-      if (toCenter < 1e-9) toCenter = 1;
-    } else {
-      return { x: cx, y: cy, dir: cd, queued: q };
-    }
-
-    const step = Math.min(remaining, toCenter);
-    const nx = cx + cd.x * step;
-    const ny = cy + cd.y * step;
-
-    // Before leaving current center toward a blocked tile, halt.
-    if (atCenter && !canEnter(tx + cd.x, ty + cd.y, opts)) {
-      return { x: cx, y: cy, dir: cd, queued: q };
-    }
-
-    cx = nx;
-    cy = ny;
-    remaining -= step;
-
-    // Tunnel wrap
-    if (cx < -0.5) cx += COLS;
-    if (cx >= COLS - 0.5) cx -= COLS;
-  }
-
-  return { x: cx, y: cy, dir: cd, queued: q };
 }
 
 function eatAt(e: Engine) {
