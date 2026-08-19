@@ -11,6 +11,7 @@ import {
 import {
   FRUIT_TABLE,
   fruitForStage,
+  fruitsForFooter,
   opposite,
   sameDir,
   DIRS,
@@ -51,6 +52,8 @@ const FRUIT_LIFE = 9;
 const GHOST_EAT_POINTS = [200, 400, 800, 1600];
 export const POWER_BLINK_FRAMES = 20;
 const POINTS_FREEZE_SEC = 1;
+const FRUIT_POINTS_SEC = 2;
+const FRUIT_EAT_R2 = 0.85 * 0.85;
 const EAT_PAUSE_PELLET = 1 / 60;
 const EAT_PAUSE_POWER = 3 / 60;
 const FRIGHT_FLASH_INTERVAL = 14 / 60;
@@ -556,13 +559,21 @@ function eatAt(e: Engine) {
       }
     }
   }
-  if (
-    e.fruit &&
-    Math.abs(e.fruit.x - e.pacX) < 0.55 &&
-    Math.abs(e.fruit.y - e.pacY) < 0.55
-  ) {
-    addScore(e, e.fruit.kind.points);
-    e.fruit = null;
+  if (e.fruit) {
+    const fdx = e.fruit.x - e.pacX;
+    const fdy = e.fruit.y - e.pacY;
+    if (fdx * fdx + fdy * fdy < FRUIT_EAT_R2) {
+      const kind = e.fruit.kind;
+      addScore(e, kind.points);
+      e.eatPopup = {
+        x: e.fruit.x,
+        y: e.fruit.y,
+        points: kind.points,
+        left: FRUIT_POINTS_SEC,
+        hidePac: false,
+      };
+      e.fruit = null;
+    }
   }
 }
 
@@ -586,6 +597,7 @@ function collide(e: Engine) {
         y: g.y,
         points: pts,
         left: POINTS_FREEZE_SEC,
+        hidePac: true,
       };
       // Superfast: freeze Pac + living ghosts while points show.
       e.freezeLeft = POINTS_FREEZE_SEC;
@@ -763,6 +775,7 @@ export function getPacmanSnapshot(): PacmanSnapshot {
       eatPopup: null,
       frame: 0,
       showInfo: false,
+      footerFruits: fruitsForFooter(1),
     };
   }
   return {
@@ -790,6 +803,7 @@ export function getPacmanSnapshot(): PacmanSnapshot {
     eatPopup: eng.eatPopup ? { ...eng.eatPopup } : null,
     frame: Math.floor(eng.time * 60),
     showInfo: eng.showInfo,
+    footerFruits: fruitsForFooter(eng.stage),
   };
 }
 

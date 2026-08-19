@@ -70,6 +70,7 @@ function GameBody({
     frame,
     showInfo,
     deathT,
+    footerFruits,
     activeDir,
     getSnap,
     startGame,
@@ -98,6 +99,7 @@ function GameBody({
       frame,
       showInfo,
       deathT,
+      footerFruits,
     }),
     [
       phase,
@@ -117,6 +119,7 @@ function GameBody({
       frame,
       showInfo,
       deathT,
+      footerFruits,
     ],
   );
 

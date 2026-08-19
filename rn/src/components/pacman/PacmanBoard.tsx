@@ -3,7 +3,11 @@ import { Platform, StyleSheet, View } from "react-native";
 import { POWER_BLINK_FRAMES } from "../../game/pacman/engine";
 import { COLS, ROWS } from "../../game/pacman/maze";
 import { MAZE_MAP, TILE_CHARS, TILES } from "../../game/pacman/mazeData";
-import type { Ghost, PacmanSnapshot } from "../../game/pacman/types";
+import {
+  bonusPointsColor,
+  type Ghost,
+  type PacmanSnapshot,
+} from "../../game/pacman/types";
 
 type Props = {
   snap: PacmanSnapshot;
@@ -261,7 +265,6 @@ function drawFruit(
   ctx.beginPath();
   ctx.arc(cx, cy + size * 0.04, bodyR, 0, Math.PI * 2);
   ctx.fill();
-  // Cherry twin for first-fruit cue
   if (label.toLowerCase().includes("cherry")) {
     ctx.beginPath();
     ctx.arc(cx + bodyR * 0.85, cy + size * 0.08, bodyR * 0.85, 0, Math.PI * 2);
@@ -364,6 +367,19 @@ function paint(
     );
   }
 
+  if (snap.eatPopup) {
+    const p = snap.eatPopup;
+    ctx.fillStyle = bonusPointsColor(p.points);
+    ctx.font = arcadeFont(cell);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      String(p.points),
+      (p.x + 0.5) * cell,
+      (p.y + 0.5) * cell,
+    );
+  }
+
   const flash = snap.frightFlash;
   if (snap.phase !== "dying") {
     for (const g of snap.ghosts) {
@@ -373,20 +389,8 @@ function paint(
 
   if (snap.phase === "dying") {
     drawPacDeath(ctx, snap.pac.x, snap.pac.y, cell, snap.deathT);
-  } else if (!snap.eatPopup) {
+  } else if (!snap.eatPopup?.hidePac) {
     drawPac(ctx, snap.pac.x, snap.pac.y, cell, snap.pac.dir, snap.pac.mouth);
-  } else {
-    const p = snap.eatPopup;
-    const rise = (1 - p.left / Math.max(0.001, 1)) * cell * 0.45;
-    ctx.fillStyle = "#00e5ff";
-    ctx.font = arcadeFont(cell);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(
-      String(p.points),
-      (p.x + 0.5) * cell,
-      (p.y + 0.5) * cell - rise,
-    );
   }
 
   if (snap.phase === "ready" || snap.phase === "dead") {
@@ -403,12 +407,10 @@ function paint(
     );
   }
 
-  // Footer-style lives under the course
   const lifeR = (LIFE_PAC * cell) / 2;
   const lifeY = h + lifeBand * 0.55;
   const gap = lifeR * 2.4;
-  const livesW = Math.max(0, snap.lives) * gap;
-  const lifeStart = (w - livesW) / 2 + lifeR;
+  const lifeStart = lifeR + cell * 0.35;
   for (let i = 0; i < snap.lives; i += 1) {
     const lx = lifeStart + i * gap;
     ctx.fillStyle = PAC;
@@ -417,6 +419,21 @@ function paint(
     ctx.arc(lx, lifeY, lifeR, 0.45, Math.PI * 2 - 0.45);
     ctx.closePath();
     ctx.fill();
+  }
+
+  const icons = snap.footerFruits ?? [];
+  const fruitGap = cell * 2;
+  let fx = w - cell * 0.85;
+  for (const icon of icons) {
+    drawFruit(
+      ctx,
+      fx / cell - 0.5,
+      lifeY / cell - 0.5,
+      cell,
+      icon.color,
+      icon.label,
+    );
+    fx -= fruitGap;
   }
 
   ctx.restore();
