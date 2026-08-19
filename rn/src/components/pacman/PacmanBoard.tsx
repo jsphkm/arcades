@@ -3,11 +3,7 @@ import { Platform, StyleSheet, View } from "react-native";
 import { POWER_BLINK_FRAMES } from "../../game/pacman/engine";
 import { COLS, ROWS } from "../../game/pacman/maze";
 import { MAZE_MAP, TILE_CHARS, TILES } from "../../game/pacman/mazeData";
-import {
-  bonusPointsColor,
-  type Ghost,
-  type PacmanSnapshot,
-} from "../../game/pacman/types";
+import type { Ghost, PacmanSnapshot } from "../../game/pacman/types";
 
 type Props = {
   snap: PacmanSnapshot;
@@ -369,7 +365,7 @@ function paint(
 
   if (snap.eatPopup) {
     const p = snap.eatPopup;
-    ctx.fillStyle = bonusPointsColor(p.points);
+    ctx.fillStyle = p.hidePac ? "#00ffff" : "#fff4dc";
     ctx.font = arcadeFont(cell);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";

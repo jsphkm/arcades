@@ -136,18 +136,3 @@ export function fruitsForFooter(stage: number): FruitKind[] {
   return list.slice(-MAX_FOOTER_FRUITS);
 }
 
-/** Cabinet bonus numerals: 100 white, 300 pink, 500 cyan, ghosts cyan. */
-export function bonusPointsColor(points: number): string {
-  switch (points) {
-    case 100:
-    case 1000:
-    case 5000:
-      return "#ffffff";
-    case 300:
-    case 700:
-    case 2000:
-      return "#ffb8ff";
-    default:
-      return "#00ffff";
-  }
-}
