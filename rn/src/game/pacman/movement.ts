@@ -15,8 +15,20 @@ export function snapCenter(
 
 export const CENTER_EPS = 0.05;
 export function nearCenter(x: number, y: number, dir: Dir): boolean {
-    if (dir.x !== 0) return Math.abs(x - Math.round(x)) <= CENTER_EPS;
-    if (dir.y !== 0) return Math.abs(y - Math.round(y)) <= CENTER_EPS;
+    if (dir.x !== 0) {
+        const r = Math.round(x);
+        if (Math.abs(x - r) > CENTER_EPS) return false;
+        if (dir.x > 0 && x > r) return false;
+        if (dir.x < 0 && x < r) return false;
+        return true; 
+    }
+    if (dir.y !== 0) {
+        const r = Math.round(y);
+        if (Math.abs(y - r) > CENTER_EPS) return false;
+        if (dir.y > 0 && y > r) return false;
+        if (dir.y < 0 && y < r) return false;
+        return true; 
+    }
     return (
         Math.abs(x - Math.round(x)) <= CENTER_EPS &&
         Math.abs(y - Math.round(y)) <= CENTER_EPS
