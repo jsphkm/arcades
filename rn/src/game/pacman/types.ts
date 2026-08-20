@@ -27,7 +27,6 @@ export type Ghost = {
   dir: Dir;
   mode: GhostMode;
   releaseIn: number;
-  /** Superfast sigReverse — turn around at next tile center */
   sigReverse: boolean;
 };
 

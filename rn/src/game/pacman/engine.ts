@@ -504,7 +504,7 @@ function tickGhost(g: Ghost, e: Engine, t: number) {
     if (g.releaseIn >= 1) {
       g.x = HOME.x;
       g.y = DOOR.y;
-      g.mode = e.frightenedLeft > 0 ? "frightened" : outsideMode(e);
+      g.mode = outsideMode(e);
       g.dir = { x: -1, y: 0 };
       g.sigReverse = false;
       g.releaseIn = 0;
