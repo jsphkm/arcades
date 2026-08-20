@@ -73,6 +73,28 @@ export function fetchMyScores(token: string, game?: ArcadeGameId) {
   );
 }
 
+export async function fetchAllMyScores(
+  token: string,
+  game?: ArcadeGameId,
+): Promise<ScoreRow[]> {
+  const all: ScoreRow[] = [];
+  let cursor: string | undefined;
+  for (let i = 0; i < 8; i++) {
+    const q = new URLSearchParams();
+    if (game) q.set("game", game);
+    if (cursor) q.set("cursor", cursor);
+    const suffix = q.toString() ? `?${q}` : "";
+    const res = await scoresFetch<{ scores: ScoreRow[]; nextCursor?: string }>(
+      `/v1/scores/me${suffix}`,
+      { token },
+    );
+    all.push(...(res.scores ?? []));
+    if (!res.nextCursor) break;
+    cursor = res.nextCursor;
+  }
+  return all;
+}
+
 export function submitScore(
   token: string,
   score: number,
