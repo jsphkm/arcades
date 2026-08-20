@@ -47,7 +47,7 @@ const ENERGIZER_SEC = [
   6, 5, 4.5, 4, 3.7, 3, 3.5, 3, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1,
 ];
 
-const FRUIT_AT = [25, 100, 180];
+const FRUIT_AT = [70, 170];
 const FRUIT_LIFE = 9;
 const GHOST_EAT_POINTS = [200, 400, 800, 1600];
 export const POWER_BLINK_FRAMES = 20;
@@ -94,6 +94,7 @@ type Engine = {
     readyLeft: number;
     dyingLeft: number;
     deathT: number;
+    announcePlayer: boolean;
 };
 
 let eng: Engine | null = null;
@@ -196,6 +197,7 @@ function baseEngine(highScore: number): Engine {
         readyLeft: 0,
         dyingLeft: 0,
         deathT: 0,
+    announcePlayer: false,
   };
 }
 
@@ -204,14 +206,15 @@ export function startPacman() {
   eng = baseEngine(high);
   eng.lives = 4;
   resetPositions(eng, false);
-    beginReady(eng);
+    beginReady(eng, true);
 }
 
-function beginReady(e: Engine) {
+function beginReady(e: Engine, announce = false) {
     e.phase = "ready";
     e.readyLeft = READY_SEC;
     e.dyingLeft = 0;
     e.deathT = 0;
+    e.announcePlayer = announce;
 }
 
 export function setHighScore(value: number) {
@@ -247,7 +250,7 @@ export function pressStart() {
     if (eng.phase === "paused") eng.phase = "playing";
     return;
   }
-  if (eng.phase === "menu" || eng.phase === "dead" || eng.phase === "won") {
+  if (eng.phase === "menu" || eng.phase === "dead") {
     startPacman();
     return;
   }
@@ -543,8 +546,8 @@ function eatAt(e: Engine) {
     e.pelletsEaten += 1;
     addScore(e, 50);
     e.eatPauseLeft = Math.max(e.eatPauseLeft, EAT_PAUSE_POWER);
-    const idx = Math.min(ENERGIZER_SEC.length - 1, e.stage - 1);
-    e.frightenedLeft = ENERGIZER_SEC[idx];
+    const blue = frightSeconds(e.stage);
+    e.frightenedLeft = blue;
     e.ghostEatStreak = 0;
     for (const g of e.ghosts) {
       if (
@@ -553,8 +556,7 @@ function eatAt(e: Engine) {
         g.mode !== "house" &&
         g.mode !== "leaving"
       ) {
-        g.mode = "frightened";
-        // Superfast onEnergized: reverse at next center, don't hard-stop.
+        if (blue > 0) g.mode = "frightened";
         g.sigReverse = true;
       }
     }
@@ -618,8 +620,12 @@ function collide(e: Engine) {
   }
 }
 
+function frightSeconds(stage: number): number {
+  if (stage >= 19) return 0;
+  return ENERGIZER_SEC[Math.min(ENERGIZER_SEC.length - 1, Math.max(0, stage - 1))];
+}
+
 function maybeSpawnFruit(e: Engine) {
-  // Superfast: RF_FRUIT_GEN_DOT_LIMIT_LIST.includes(map.dotsEaten)
   if (e.fruit || !FRUIT_AT.includes(e.pelletsEaten)) return;
   if (e.fruitIndex >= FRUIT_AT.length) return;
   // Skip if this threshold was already used (e.g. after a missed frame).
@@ -776,6 +782,7 @@ export function getPacmanSnapshot(): PacmanSnapshot {
       frame: 0,
       showInfo: false,
       footerFruits: fruitsForFooter(1),
+      showPlayerOne: false,
     };
   }
   return {
@@ -804,6 +811,10 @@ export function getPacmanSnapshot(): PacmanSnapshot {
     frame: Math.floor(eng.time * 60),
     showInfo: eng.showInfo,
     footerFruits: fruitsForFooter(eng.stage),
+    showPlayerOne:
+      eng.phase === "ready" &&
+      eng.announcePlayer &&
+      eng.readyLeft > READY_SEC * 0.4,
   };
 }
 

@@ -92,7 +92,7 @@ export function ArcadeScoreboard({
         <View style={styles.hud}>
           <View style={styles.hudLeft}>
             <Text style={[styles.hudLabel, { fontFamily: pixel }]}>
-              {game === "pacman" ? "LVL —" : "RUNS"}
+              RUNS
             </Text>
             <Text style={[styles.hudValue, { fontFamily: pixel }]}>
               {formatArcadeScore(rows.length)}

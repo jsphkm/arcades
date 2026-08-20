@@ -377,7 +377,7 @@ function paint(
   }
 
   const flash = snap.frightFlash;
-  if (snap.phase !== "dying") {
+  if (snap.phase !== "dying" && !snap.showPlayerOne) {
     for (const g of snap.ghosts) {
       drawGhost(ctx, g, cell, t, flash);
     }
@@ -385,15 +385,21 @@ function paint(
 
   if (snap.phase === "dying") {
     drawPacDeath(ctx, snap.pac.x, snap.pac.y, cell, snap.deathT);
-  } else if (!snap.eatPopup?.hidePac) {
+  } else if (!snap.eatPopup?.hidePac && !snap.showPlayerOne) {
     drawPac(ctx, snap.pac.x, snap.pac.y, cell, snap.pac.dir, snap.pac.mouth);
   }
 
   if (snap.phase === "ready" || snap.phase === "dead") {
-    const label = snap.phase === "ready" ? "READY!" : "GAME OVER";
     ctx.font = arcadeFont(cell);
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
+    if (snap.phase === "ready" && snap.showPlayerOne) {
+      const who = "PLAYER ONE";
+      ctx.fillStyle = "#00ffff";
+      const whoW = ctx.measureText(who).width;
+      ctx.fillText(who, Math.round((w - whoW) / 2), (11 + 0.5) * cell);
+    }
+    const label = snap.phase === "ready" ? "READY!" : "GAME OVER";
     ctx.fillStyle = snap.phase === "ready" ? "#ffff00" : "#ff0000";
     const labelW = ctx.measureText(label).width;
     ctx.fillText(

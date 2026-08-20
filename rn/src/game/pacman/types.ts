@@ -6,8 +6,7 @@ export type GamePhase =
     | "playing"
     | "paused"
     | "dying"
-    | "dead"
-    | "won";
+    | "dead";
 
 export type GhostMode =
   | "scatter"
@@ -69,6 +68,8 @@ export type PacmanSnapshot = {
   /** 0–1 while dying; used to draw the collapse. */
   deathT: number;
   footerFruits: FruitKind[];
+  /** First READY of a new credit: PLAYER ONE above the house. */
+  showPlayerOne: boolean;
 };
 
 export const DIRS: Dir[] = [
@@ -95,7 +96,7 @@ const GALAXIAN: FruitKind = { id: "galaxian", label: "Galaxian", points: 2000, c
 const BELL: FruitKind = { id: "bell", label: "Bell", points: 3000, color: "#ffd60a" };
 const KEY: FruitKind = { id: "key", label: "Key", points: 5000, color: "#64d2ff" };
 
-/** Unique kinds (info panel). Level 3–4 share orange, 5–6 apple, etc. */
+/** Unique kinds (info panel). Rounds 3–4 share orange, 5–6 apple, etc. */
 export const FRUIT_TABLE: FruitKind[] = [
   CHERRY,
   STRAWBERRY,

@@ -18,7 +18,7 @@ import {
   PACMAN_BOARD_EXTRA,
 } from "../../../components/pacman/PacmanBoard";
 import { PacmanInfo } from "../../../components/pacman/PacmanInfo";
-import { ScoreHud } from "../../../components/ScoreHud";
+import { ScoreHud, scoreHudHeight } from "../../../components/ScoreHud";
 import { arcade } from "../../../arcadeTheme";
 import { usePacmanGame } from "../../../hooks/usePacmanGame";
 import { useTheme } from "../../../theme-context";
@@ -26,7 +26,6 @@ import { COLS, ROWS } from "../../../game/pacman/maze";
 import { detectDevice, submitScore } from "../../../scores/api";
 import { arcadesAuthConfig } from "../../../auth/config";
 
-const SCORE_HUD = 54;
 const CONTROL_SLOT_PORTRAIT = 120;
 const CONTROL_SLOT_LANDSCAPE = 120;
 /** Matches PacmanBoard life band + actor edge pad. */
@@ -71,6 +70,7 @@ function GameBody({
     showInfo,
     deathT,
     footerFruits,
+    showPlayerOne,
     activeDir,
     getSnap,
     startGame,
@@ -100,6 +100,7 @@ function GameBody({
       showInfo,
       deathT,
       footerFruits,
+      showPlayerOne,
     }),
     [
       phase,
@@ -120,6 +121,7 @@ function GameBody({
       showInfo,
       deathT,
       footerFruits,
+      showPlayerOne,
     ],
   );
 
@@ -140,10 +142,11 @@ function GameBody({
     const contentW = Math.max(200, area.w || width - pagePad * 2);
     const contentH = Math.max(200, area.h || height * 0.8);
     const aspect = COLS / ROWS; // width / height of maze
+    const hudGuess = scoreHudHeight(Math.min(contentW, contentH * aspect));
 
     if (isLandscape) {
       // Fill vertical space; width follows maze aspect, capped by side slots.
-      const maxH = Math.max(160, contentH - SCORE_HUD - 8 - LIFE_BAND);
+      const maxH = Math.max(160, contentH - hudGuess - 8 - LIFE_BAND);
       const maxW = Math.max(160, contentW - CONTROL_SLOT_LANDSCAPE * 2);
       let h = maxH;
       let w = h * aspect;
@@ -158,7 +161,7 @@ function GameBody({
     const maxW = contentW;
     const maxH = Math.max(
       160,
-      contentH - CONTROL_SLOT_PORTRAIT - SCORE_HUD - 8 - LIFE_BAND,
+      contentH - CONTROL_SLOT_PORTRAIT - hudGuess - 8 - LIFE_BAND,
     );
     let h = maxH;
     let w = h * aspect;
@@ -176,12 +179,11 @@ function GameBody({
     phase === "playing" ||
     phase === "paused" ||
     phase === "dying" ||
-    phase === "dead" ||
-    phase === "won";
+    phase === "dead";
 
   const hud = (
     <ScoreHud
-      stage={stage}
+      oneUp
       score={score}
       highScore={highScore}
       width={boardW}
@@ -223,12 +225,9 @@ function GameBody({
             boardH={boardH}
             getSnap={getSnap}
           />
-          {phase === "dead" || phase === "won" ? (
+          {phase === "dead" ? (
             <View style={styles.overlayMenu} pointerEvents="box-none">
-              <Menu
-                onStart={startGame}
-                label={phase === "won" ? "Play Again" : "Try Again"}
-              />
+              <Menu onStart={startGame} label="Try Again" />
             </View>
           ) : null}
           {paused && !showInfo ? (
@@ -378,13 +377,17 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingTop: 8,
     paddingBottom: 4,
+    overflow: "visible",
   },
   landscapeWrap: {
     flex: 1,
     alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "flex-start",
+    paddingTop: 8,
+    overflow: "visible",
   },
   hudRow: { alignItems: "center", marginBottom: 4, flexShrink: 0 },
   landscapeRow: {

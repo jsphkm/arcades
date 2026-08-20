@@ -68,11 +68,7 @@ export function usePacmanGame(opts?: {
     setSnap(next);
     phaseRef.current = next.phase;
     if (next.highScore > 0) writeStoredHighScore(next.highScore);
-    if (
-      (next.phase === "dead" || next.phase === "won") &&
-      prev !== "dead" &&
-      prev !== "won"
-    ) {
+    if (next.phase === "dead" && prev !== "dead") {
       onGameOverRef.current?.(next.score);
     }
     if (next.phase !== "playing" && next.phase !== "ready") {
