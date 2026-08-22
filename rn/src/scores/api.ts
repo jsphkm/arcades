@@ -100,7 +100,7 @@ export function submitScore(
   score: number,
   device: string,
   userAgent: string,
-  game: ArcadeGameId = "snake",
+  game: ArcadeGameId,
 ) {
   return scoresFetch<{
     runId: string;
