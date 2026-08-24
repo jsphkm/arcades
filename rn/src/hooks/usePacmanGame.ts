@@ -90,16 +90,22 @@ export function usePacmanGame(opts?: {
     if (typeof requestAnimationFrame === "undefined") return;
     let alive = true;
     let raf = 0;
-    let last =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
-    const frame = (now: number) => {
+    const nowMs = () =>
+      typeof performance !== "undefined" &&
+      typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+    let last = nowMs();
+    const frame = () => {
       if (!alive) return;
       const phase = phaseRef.current;
+      // RN Android rAF may pass Choreographer ns, not DOM ms. Wall clock only.
+      const now = nowMs();
       if (
         screenActiveRef.current &&
         (phase === "playing" || phase === "ready" || phase === "dying")
       ) {
-        const dt = Math.min(0.05, (now - last) / 1000);
+        const dt = Math.min(0.05, Math.max(0, now - last) / 1000);
         last = now;
         tickPacman(dt);
         sync();

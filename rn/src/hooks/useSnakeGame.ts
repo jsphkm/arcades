@@ -121,12 +121,16 @@ export function useSnakeGame(opts?: {
       typeof performance.now === "function"
         ? performance.now()
         : Date.now();
+
     let last = nowMs();
     let acc = 0;
-    const loop = (now: number) => {
+
+    const loop = () => {
       if (!alive) return;
+
+      const now = nowMs();
       if (screenActiveRef.current && statusRef.current === "playing") {
-        const dt = Math.min(TICK_MS, now - last);
+        const dt = Math.min(TICK_MS, Math.max(0, now - last));
         last = now;
         acc += dt;
         if (acc >= TICK_MS) {
@@ -141,6 +145,7 @@ export function useSnakeGame(opts?: {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
+
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
