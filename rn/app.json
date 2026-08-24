@@ -5,8 +5,11 @@
     "orientation": "portrait",
     "scheme": "arcades",
     "userInterfaceStyle": "automatic",
-    "ios": {},
+    "ios": {
+      "bundleIdentifier": "com.arcades.app"
+    },
     "android": {
+      "package": "com.arcades.app",
       "predictiveBackGestureEnabled": false
     },
     "web": {
