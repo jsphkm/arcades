@@ -13,11 +13,13 @@ import {
   Animated,
   Easing,
   Pressable,
+  Platform,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIdentityAuth } from "identity-sdk";
 import { arcade } from "../arcadeTheme";
 import { arcadesAuthConfig } from "../auth/config";
@@ -203,6 +205,10 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
   const c = SHELL;
   const authEnabled = arcadesAuthConfig() !== null;
   const fontFamily = typography.pixelFamily;
+  const insets = useSafeAreaInsets();
+  const topInset = insets.top > 0 ? insets.top : Platform.OS === "ios" ? 54 : 0;
+  const bottomInset =
+    insets.bottom > 0 ? insets.bottom : Platform.OS === "ios" ? 34 : 0;
   const { width } = useWindowDimensions();
   const drawerW = Math.min(ARCADE_SIDEBAR_W, Math.max(240, width * 0.85));
   const compact = width < 640;
@@ -275,7 +281,17 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
     <ArcadeShellLayoutContext.Provider value={layout}>
       <View style={[styles.root, { backgroundColor: c.shell }]}>
         <View
-          style={[styles.mainWrap, compact && styles.mainWrapCompact]}
+          style={[
+            styles.mainWrap,
+            compact
+              ? {
+                  paddingTop: topInset + 4,
+                  paddingBottom: bottomInset + 4,
+                  paddingLeft: 8 + insets.left,
+                  paddingRight: 8 + insets.right,
+                }
+              : null,
+          ]}
         >
           <View
             style={[
@@ -375,6 +391,8 @@ export function ArcadeShell({ children, highScoresHref }: ArcadeShellProps) {
                   width: drawerW,
                   backgroundColor: c.rail,
                   transform: [{ translateX }],
+                  paddingTop: 12 + topInset,
+                  paddingBottom: 16 + bottomInset,
                 },
               ]}
             >
@@ -402,9 +420,6 @@ const styles = StyleSheet.create({
     padding: 8,
     minWidth: 0,
   },
-  mainWrapCompact: {
-    padding: 0,
-  },
   mainCard: {
     flex: 1,
     borderRadius: 16,
@@ -412,6 +427,7 @@ const styles = StyleSheet.create({
   },
   mainCardCompact: {
     borderRadius: 0,
+    overflow: "visible",
   },
   mainToolbar: {
     flexDirection: "row",
