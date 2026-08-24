@@ -105,6 +105,9 @@ func (h *Handler) postScore(ctx context.Context, req events.APIGatewayV2HTTPRequ
 	if body.Score < 0 || body.Score > MaxScore {
 		return corsJSON(http.StatusBadRequest, map[string]string{"error": "score out of range"}), nil
 	}
+	if strings.TrimSpace(body.Game) == "" {
+		return corsJSON(http.StatusBadRequest, map[string]string{"error": "invalid game"}), nil
+	}
 	game := NormalizeGame(body.Game)
 	if game == "" {
 		return corsJSON(http.StatusBadRequest, map[string]string{"error": "invalid game"}), nil

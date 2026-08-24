@@ -1,4 +1,5 @@
 import * as AuthSession from "expo-auth-session";
+import { Platform } from "react-native";
 
 export type PendingOAuth = {
   codeVerifier: string;
@@ -22,11 +23,37 @@ function ssoSkipKey(prefix: string): string {
   return `${prefix}.sso.skip`;
 }
 
+function returnToKey(prefix: string): string {
+  return `${prefix}.oauth.returnTo`;
+}
+
+export function saveReturnTo(prefix: string, path: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  if (!path.startsWith("/") || path.startsWith("//") || path === "/") return;
+  sessionStorage.setItem(returnToKey(prefix), path);
+}
+
+export function takeReturnTo(prefix: string): string | null {
+  if (typeof sessionStorage === "undefined") return null;
+  const raw = sessionStorage.getItem(returnToKey(prefix));
+  sessionStorage.removeItem(returnToKey(prefix));
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+export function currentAppPath(): string {
+  if (typeof window === "undefined") return "/";
+  return window.location.pathname || "/";
+}
+
 export function defaultRedirectUri(): string {
-  if (typeof window !== "undefined") {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
     return `${window.location.origin}/`;
   }
-  return AuthSession.makeRedirectUri({ path: "/" });
+  return AuthSession.makeRedirectUri({
+    scheme: "arcades",
+    path: "/",
+  });
 }
 
 export function savePendingOAuth(
@@ -94,7 +121,12 @@ export function clearSsoQueryFlag(): void {
 export function shouldAttemptSilentSso(prefix: string): boolean {
   if (typeof sessionStorage === "undefined") return false;
   if (sessionStorage.getItem(ssoSkipKey(prefix))) return false;
-  // Cross-app handoff (e.g. Arcades → Account) always retries once.
+  return urlHasSsoFlag();
+}
+
+export function canRequestSilentSso(prefix: string): boolean {
+  if (typeof sessionStorage === "undefined") return false;
+  if (sessionStorage.getItem(ssoSkipKey(prefix))) return false;
   if (urlHasSsoFlag()) return true;
   if (sessionStorage.getItem(ssoAttemptedKey(prefix))) return false;
   return true;

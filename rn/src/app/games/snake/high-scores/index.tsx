@@ -1,6 +1,6 @@
-import { ArcadeScoreboard } from "../../../components/ArcadeScoreboard";
+import { ArcadeScoreboard } from "../../../../components/ArcadeScoreboard";
 
-export default function HighScoresScreen() {
+export default function SnakeHighScoresScreen() {
   return (
     <ArcadeScoreboard
       game="snake"

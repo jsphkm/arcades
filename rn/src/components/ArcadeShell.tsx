@@ -196,7 +196,61 @@ function DrawerNav({
         activeText={c.activeText}
         text={c.text}
       />
+      {arcadesAuthConfig() ? (
+        <DrawerAccountLink
+          fontFamily={fontFamily}
+          onNavigate={onNavigate}
+          c={c}
+        />
+      ) : null}
     </>
+  );
+}
+
+function DrawerAccountLink({
+  fontFamily,
+  onNavigate,
+  c,
+}: {
+  fontFamily: string;
+  onNavigate: () => void;
+  c: ShellChrome;
+}) {
+  const pathname = usePathname();
+  const { session, ready } = useIdentityAuth();
+  if (!ready || !session) return null;
+  const active = pathname === "/account";
+
+  return (
+    <Link href="/account" asChild>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Account"
+        accessibilityState={{ selected: active }}
+        onPress={onNavigate}
+        style={({ pressed, hovered }) => [
+          styles.drawerAccount,
+          {
+            backgroundColor: active
+              ? c.activeBg
+              : pressed || hovered
+                ? c.hoverBg
+                : "transparent",
+          },
+        ]}
+      >
+        <Text
+          style={{
+            fontFamily,
+            fontSize: 15,
+            fontWeight: active ? "600" : "500",
+            color: active ? c.activeText : c.text,
+          }}
+        >
+          ACCOUNT
+        </Text>
+      </Pressable>
+    </Link>
   );
 }
 
@@ -510,5 +564,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 28,
     marginBottom: 36,
+  },
+  drawerAccount: {
+    minHeight: 48,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 28,
+    justifyContent: "center",
+    marginTop: 8,
   },
 });
