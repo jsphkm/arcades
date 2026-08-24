@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "expo-router";
 import {
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -53,12 +55,23 @@ export function ProfileMenu() {
   const colors = chrome[scheme];
   const fontFamily = typography.pixelFamily;
   const { session, signOut, ready } = useIdentityAuth();
+  const portalUrl = config.accountUrl();
+  const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 56, right: 12 });
   const triggerRef = useRef<ViewType | null>(null);
   const email = session?.email ?? "admin";
   const initial = initialFromEmail(session?.email);
+
+  const openAccount = () => {
+    setOpen(false);
+    if (Platform.OS === "web" && portalUrl) {
+      void Linking.openURL(`${portalUrl}/?sso=1`);
+      return;
+    }
+    router.push("/account");
+  };
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
@@ -213,13 +226,7 @@ export function ProfileMenu() {
 
             <View style={styles.footerActions}>
               <Pressable
-                onPress={() => {
-                  setOpen(false);
-                  const base = config.accountUrl();
-                  if (!base) return;
-                  // Force Account to retry Cognito silent SSO for this visit.
-                  void Linking.openURL(`${base}/?sso=1`);
-                }}
+                onPress={openAccount}
                 style={({ pressed }) => [
                   styles.signOutBtn,
                   {

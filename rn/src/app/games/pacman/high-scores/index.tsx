@@ -1,4 +1,4 @@
-import { ArcadeScoreboard } from "../../../components/ArcadeScoreboard";
+import { ArcadeScoreboard } from "../../../../components/ArcadeScoreboard";
 
 export default function PacmanHighScoresScreen() {
   return (

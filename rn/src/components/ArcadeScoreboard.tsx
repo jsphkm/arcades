@@ -9,13 +9,11 @@ import {
   View,
 } from "react-native";
 import { arcade, formatArcadeScore } from "../arcadeTheme";
-import {
-  fetchLeaderboard,
-  type ArcadeGameId,
-  type ScoreRow,
-} from "../scores/api";
+import { fetchLeaderboard, type ArcadeGameId, type ScoreRow } from "../scores/api";
 import { useTheme } from "../theme-context";
 import { ArcadeShell } from "./ArcadeShell";
+
+const TOP = 10;
 
 function formatWhen(iso: string): string {
   try {
@@ -76,7 +74,8 @@ export function ArcadeScoreboard({
     void load();
   }, [load]);
 
-  const top = rows[0]?.score ?? 0;
+  const top10 = rows.slice(0, TOP);
+  const high = top10[0]?.score ?? 0;
 
   return (
     <ArcadeShell highScoresHref={highScoresHref}>
@@ -85,17 +84,29 @@ export function ArcadeScoreboard({
         contentContainerStyle={styles.inner}
         showsVerticalScrollIndicator={false}
       >
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={backLabel}
+          onPress={() => router.replace(backHref)}
+          style={({ pressed, hovered }) => [
+            styles.backLink,
+            (pressed || hovered) && { opacity: 0.7 },
+          ]}
+        >
+          <Text style={[styles.backLinkLabel, { fontFamily: pixel }]}>
+            {`< ${backLabel.toUpperCase()}`}
+          </Text>
+        </Pressable>
+
         <Text style={[styles.gameTitle, { fontFamily: pixel }]}>
           {title.toUpperCase()}
         </Text>
 
         <View style={styles.hud}>
           <View style={styles.hudLeft}>
-            <Text style={[styles.hudLabel, { fontFamily: pixel }]}>
-              RUNS
-            </Text>
+            <Text style={[styles.hudLabel, { fontFamily: pixel }]}>TOP</Text>
             <Text style={[styles.hudValue, { fontFamily: pixel }]}>
-              {formatArcadeScore(rows.length)}
+              {formatArcadeScore(top10.length)}
             </Text>
           </View>
           <View style={styles.hudCenter}>
@@ -103,13 +114,13 @@ export function ArcadeScoreboard({
               HIGH SCORE
             </Text>
             <Text style={[styles.hudValue, { fontFamily: pixel }]}>
-              {formatArcadeScore(top)}
+              {formatArcadeScore(high)}
             </Text>
           </View>
         </View>
 
         <Text style={[styles.sectionTitle, { fontFamily: pixel }]}>
-          LEADERBOARD
+          HIGH SCORES
         </Text>
 
         <View style={styles.board}>
@@ -120,12 +131,12 @@ export function ArcadeScoreboard({
             />
           ) : error ? (
             <Text style={[styles.empty, { fontFamily: pixel }]}>{error}</Text>
-          ) : rows.length === 0 ? (
+          ) : top10.length === 0 ? (
             <Text style={[styles.empty, { fontFamily: pixel }]}>
               NO SCORES YET
             </Text>
           ) : (
-            rows.slice(0, 10).map((r, i) => {
+            top10.map((r, i) => {
               const rank = r.rank ?? i + 1;
               const accent =
                 rank === 1
@@ -146,10 +157,7 @@ export function ArcadeScoreboard({
                     {String(rank).padStart(2, "0")}
                   </Text>
                   <Text
-                    style={[
-                      styles.player,
-                      { fontFamily: pixel, color: accent },
-                    ]}
+                    style={[styles.player, { fontFamily: pixel, color: accent }]}
                     numberOfLines={1}
                   >
                     {playerLabel(r)}
@@ -170,20 +178,6 @@ export function ArcadeScoreboard({
             })
           )}
         </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={backLabel}
-          onPress={() => router.replace(backHref)}
-          style={({ pressed, hovered }) => [
-            styles.backBtn,
-            (pressed || hovered) && styles.backBtnHot,
-          ]}
-        >
-          <Text style={[styles.backLabel, { fontFamily: pixel }]}>
-            {backLabel.toUpperCase()}
-          </Text>
-        </Pressable>
       </ScrollView>
     </ArcadeShell>
   );
@@ -199,9 +193,21 @@ const styles = StyleSheet.create({
     maxWidth: 448,
     alignSelf: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 12,
     paddingBottom: 40,
     alignItems: "center",
+  },
+  backLink: {
+    alignSelf: "flex-start",
+    minHeight: 32,
+    justifyContent: "center",
+    marginBottom: 12,
+    width: "100%",
+  },
+  backLinkLabel: {
+    color: arcade.muted,
+    fontSize: 8,
+    letterSpacing: 1,
   },
   gameTitle: {
     color: arcade.brand,
@@ -257,7 +263,7 @@ const styles = StyleSheet.create({
     width: "100%",
     gap: 10,
     minHeight: 120,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   row: {
     flexDirection: "row",
@@ -279,21 +285,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: "center",
     marginVertical: 24,
-  },
-  backBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderWidth: 2,
-    borderColor: arcade.brand,
-    borderRadius: 8,
-    backgroundColor: arcade.accentSoft,
-  },
-  backBtnHot: {
-    backgroundColor: arcade.accentSoftHot,
-  },
-  backLabel: {
-    color: arcade.brand,
-    fontSize: 10,
-    letterSpacing: 1,
   },
 });

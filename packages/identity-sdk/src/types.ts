@@ -25,5 +25,7 @@ export type IdentityAuthValue = {
   signOut: () => Promise<void>;
   expireSession: () => void;
   getAccessToken: () => Promise<string | null>;
+  requestSilentSso: () => void;
+  silentSsoPending: boolean;
   accessToken: string | null;
 };

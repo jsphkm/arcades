@@ -11,8 +11,10 @@ import React, {
 } from "react";
 import { Platform } from "react-native";
 import {
+  canRequestSilentSso,
   clearOAuthQueryFromUrl,
   clearSilentSsoSkip,
+  currentAppPath,
   defaultRedirectUri,
   isSilentSsoSoftError,
   markOAuthCodeUsed,
@@ -20,8 +22,10 @@ import {
   markSilentSsoSkipped,
   readOAuthCallbackParams,
   savePendingOAuth,
+  saveReturnTo,
   shouldAttemptSilentSso,
   takePendingOAuth,
+  takeReturnTo,
   wasOAuthCodeUsed,
 } from "./oauth";
 import {
@@ -156,7 +160,7 @@ async function completeWebOAuthReturn(opts: {
       // Expo Router can keep ?code= after a successful exchange. Prefer the
       // persisted session over failing the bootstrap and logging the user out.
       if (!pending) {
-        const existing = loadSession(prefix);
+        const existing = await loadSession(prefix);
         if (existing && wasOAuthCodeUsed(prefix, authCode)) {
           oauthReturnResult = { session: existing, error: null };
           return existing;
@@ -187,7 +191,7 @@ async function completeWebOAuthReturn(opts: {
       }
 
       const next = sessionFromTokenResponse(token, null);
-      saveSession(prefix, next);
+      await saveSession(prefix, next);
       markOAuthCodeUsed(prefix, authCode);
       clearSilentSsoSkip(prefix);
       oauthReturnResult = { session: next, error: null };
@@ -270,6 +274,17 @@ export function IdentityAuthProvider({
         });
         if (cancelled) return;
 
+        const dest = takeReturnTo(storagePrefix);
+        if (
+          Platform.OS === "web" &&
+          typeof window !== "undefined" &&
+          dest &&
+          dest !== window.location.pathname
+        ) {
+          window.location.replace(dest);
+          return;
+        }
+
         if (error) setAuthError(error);
 
         if (fromOAuth) {
@@ -280,7 +295,7 @@ export function IdentityAuthProvider({
           return;
         }
 
-        const existing = loadSession(storagePrefix);
+        const existing = await loadSession(storagePrefix);
         if (existing) {
           sessionRef.current = existing;
           setSession(existing);
@@ -288,10 +303,8 @@ export function IdentityAuthProvider({
           return;
         }
 
-        if (
-          Platform.OS === "web" &&
-          shouldAttemptSilentSso(storagePrefix)
-        ) {
+        if (Platform.OS === "web" && shouldAttemptSilentSso(storagePrefix)) {
+          saveReturnTo(storagePrefix, currentAppPath());
           setSilentSsoPending(true);
           return;
         }
@@ -315,9 +328,9 @@ export function IdentityAuthProvider({
   }, [configOk, resolved]);
 
   const expireSession = useCallback(() => {
-    clearSession(prefix);
     sessionRef.current = null;
     setSession(null);
+    void clearSession(prefix);
   }, [prefix]);
 
   const clearAuthError = useCallback(() => setAuthError(null), []);
@@ -344,7 +357,7 @@ export function IdentityAuthProvider({
         return null;
       }
       const next = sessionFromTokenResponse(token, current);
-      saveSession(prefix, next);
+      await saveSession(prefix, next);
       sessionRef.current = next;
       setSession(next);
       return next.accessToken;
@@ -404,6 +417,7 @@ export function IdentityAuthProvider({
     if (!request.codeVerifier || !request.state) return;
 
     silentRedirectStarted.current = true;
+    saveReturnTo(prefix, currentAppPath());
     markSilentSsoAttempted(prefix);
 
     (async () => {
@@ -442,6 +456,15 @@ export function IdentityAuthProvider({
     return () => clearTimeout(id);
   }, [silentSsoPending]);
 
+  const requestSilentSso = useCallback(() => {
+    if (sessionRef.current) return;
+    if (Platform.OS !== "web") return;
+    if (silentRedirectStarted.current) return;
+    if (!canRequestSilentSso(prefix)) return;
+    saveReturnTo(prefix, currentAppPath());
+    setSilentSsoPending(true);
+  }, [prefix]);
+
   const signIn = useCallback(async () => {
     const cfg = resolvedRef.current;
     if (!configOk || !discovery || !request || !cfg) {
@@ -449,6 +472,7 @@ export function IdentityAuthProvider({
     }
 
     clearSilentSsoSkip(prefix);
+    saveReturnTo(prefix, currentAppPath());
 
     if (Platform.OS === "web" && typeof window !== "undefined") {
       const url = await request.makeAuthUrlAsync(discovery);
@@ -483,7 +507,7 @@ export function IdentityAuthProvider({
     );
 
     const next = sessionFromTokenResponse(token, null);
-    saveSession(prefix, next);
+    await saveSession(prefix, next);
     sessionRef.current = next;
     setSession(next);
   }, [configOk, discovery, getRedirectUri, prefix, promptAsync, request]);
@@ -512,13 +536,18 @@ export function IdentityAuthProvider({
     }
 
     expireSession();
-    if (!configOk || !cfg || typeof window === "undefined") return;
+    await clearSession(prefix);
+    if (!configOk || !cfg) return;
     const domain = trimSlash(cfg.cognitoDomain);
     const logoutUrl =
       `${domain}/logout` +
       `?client_id=${encodeURIComponent(cfg.clientId)}` +
       `&logout_uri=${encodeURIComponent(getRedirectUri())}`;
-    window.location.href = logoutUrl;
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.location.href = logoutUrl;
+      return;
+    }
+    await WebBrowser.openAuthSessionAsync(logoutUrl, getRedirectUri());
   }, [configOk, discovery, expireSession, getRedirectUri, prefix]);
 
   const value = useMemo(
@@ -532,6 +561,8 @@ export function IdentityAuthProvider({
       signOut,
       expireSession,
       getAccessToken,
+      requestSilentSso,
+      silentSsoPending,
       accessToken: session?.accessToken ?? null,
     }),
     [
@@ -544,6 +575,8 @@ export function IdentityAuthProvider({
       signOut,
       expireSession,
       getAccessToken,
+      requestSilentSso,
+      silentSsoPending,
     ],
   );
 
