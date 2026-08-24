@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { PanResponder, Platform, StyleSheet, Text, View } from "react-native";
+import { arcade } from "../arcadeTheme";
 import { useTheme } from "../theme-context";
 import type { Dir } from "../game/dir";
 
@@ -99,7 +100,7 @@ export function Joystick({
   travelDir = null,
   steerBlocked = false,
 }: Props) {
-  const { colors, typography } = useTheme();
+  const { typography } = useTheme();
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const [holdDir, setHoldDir] = useState<Dir | null>(null);
   const lastDir = useRef<Dir | null>(null);
@@ -147,7 +148,10 @@ export function Joystick({
       PanResponder.create({
         onStartShouldSetPanResponder: () => enabledRef.current,
         onMoveShouldSetPanResponder: () => enabledRef.current,
+        onStartShouldSetPanResponderCapture: () => enabledRef.current,
+        onMoveShouldSetPanResponderCapture: () => enabledRef.current,
         onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
         onPanResponderGrant: (evt) => {
           if (!enabledRef.current) return;
           setKnob({ x: 0, y: 0 });
@@ -222,7 +226,7 @@ export function Joystick({
           {
             pointerEvents: "none",
             userSelect: "none",
-            color: on && blocked ? "#ff3333" : on ? colors.button : colors.hint,
+            color: on && blocked ? "#ff3333" : on ? arcade.text : arcade.dim,
             fontFamily: typography.fontFamily,
             opacity: on ? 1 : 0.4,
           },
@@ -238,7 +242,7 @@ export function Joystick({
       style={[
         styles.base,
         {
-          backgroundColor: colors.board,
+          backgroundColor: arcade.surface,
           opacity: enabled ? 1 : 0.45,
           userSelect: "none",
           touchAction: "none",
@@ -266,7 +270,7 @@ export function Joystick({
           styles.knob,
           {
             pointerEvents: "none",
-            backgroundColor: colors.button,
+            backgroundColor: arcade.text,
             transform: [{ translateX: knob.x }, { translateY: knob.y }],
           },
         ]}

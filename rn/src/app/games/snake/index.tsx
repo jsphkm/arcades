@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { View, StyleSheet, useWindowDimensions } from "react-native";
+import { Stack } from "expo-router";
 import { useIdentityAuth } from "identity-sdk";
 import { arcade } from "../../../arcadeTheme";
 import { useTheme } from "../../../theme-context";
@@ -183,8 +184,14 @@ function AuthenticatedGame() {
 }
 
 export default function SnakeGameScreen() {
-  if (arcadesAuthConfig()) return <AuthenticatedGame />;
-  return <GameScreen />;
+  return (
+    <>
+      <Stack.Screen
+        options={{ gestureEnabled: false, fullScreenGestureEnabled: false }}
+      />
+      {arcadesAuthConfig() ? <AuthenticatedGame /> : <GameScreen />}
+    </>
+  );
 }
 
 const styles = StyleSheet.create({

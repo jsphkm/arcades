@@ -6,6 +6,7 @@ import {
   useWindowDimensions,
   type LayoutChangeEvent,
 } from "react-native";
+import { Stack } from "expo-router";
 import { useIdentityAuth } from "identity-sdk";
 import { ArcadeShell } from "../../../components/ArcadeShell";
 import {
@@ -201,6 +202,7 @@ function GameBody({
           alignSelf: "center",
         },
       ]}
+      collapsable={false}
     >
       {phase === "menu" || !showBoard ? (
         <View style={styles.menuStack}>
@@ -360,8 +362,14 @@ function AuthenticatedGame() {
 }
 
 export default function PacmanGameScreen() {
-  if (arcadesAuthConfig()) return <AuthenticatedGame />;
-  return <PacmanGame />;
+  return (
+    <>
+      <Stack.Screen
+        options={{ gestureEnabled: false, fullScreenGestureEnabled: false }}
+      />
+      {arcadesAuthConfig() ? <AuthenticatedGame /> : <PacmanGame />}
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -405,7 +413,7 @@ const styles = StyleSheet.create({
   boardWrap: {
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
+    overflow: "visible",
     position: "relative",
   },
   portraitControls: {
